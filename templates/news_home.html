@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
+    <script>
+
+function openNav() {
+  document.getElementById("mySidebar").style.width = "250px";
+  document.getElementById("main").style.marginLeft = "250px";
+}
+
+function closeNav() {
+  document.getElementById("mySidebar").style.width = "0";
+  document.getElementById("main").style.marginLeft= "0";
+}
+</script>
+
+    <style>
+    body {
+
+  font-family: "Lato", sans-serif;
+}
+.topnav {
+  overflow: hidden;
+  background-color: black;
+}
+
+
+input[type="date"]{
+font-size:16px;
+margin-top:10px;
+margin-bottom:10px;
+font-family: "Lato", sans-serif;
+}
+input[type="submit"]{
+color:white;
+font-size:20px;
+margin-top:20px;
+  font-family: Arial, Helvetica, sans-serif;
+background-color:red;
+}
+
+
+.sidebar {
+
+  height: 100%;
+  width: 0;
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  background-color: black;
+  color:white;
+  overflow-x: hidden;
+  transition: 0.5s;
+  padding-top: 60px;
+  font-size:20px;
+
+}
+
+.sidebar select {
+  text-decoration: none;
+  font-size: 15px;
+  color: black;
+  display: block;
+  transition: 0.3s;
+  margin-top:10px;
+  margin-bottom:10px;
+}
+
+
+.sidebar .closebtn {
+  position: absolute;
+  color:white;
+  top: 0;
+  right: 25px;
+  font-size: 36px;
+  margin-left: 50px;
+}
+
+.topnav .openbtn {
+  font-size: 20px;
+  cursor: pointer;
+  background-color: black;
+  color: white;
+  padding: 10px 18px;
+  border: none;
+}
+
+.openbtn:hover {
+  background-color: #444;
+}
+
+.topnav a.active {
+  background-color: #2196F3;
+  color: white;
+}
+
+.topnav .search-container {
+  float: right;
+}
+
+.topnav input[type=text] {
+  padding: 6px;
+  margin-top: 8px;
+  font-size: 17px;
+  border: none;
+}
+
+.topnav .search-container button {
+  float: right;
+  padding: 6px 10px;
+  margin-top: 8px;
+  margin-right: 16px;
+  background: #ddd;
+  font-size: 17px;
+  border: none;
+  cursor: pointer;
+}
+
+.topnav .search-container button:hover {
+  background: #ccc;
+}
+
+@media screen and (max-width: 600px) {
+  .topnav .search-container {
+    float: none;
+  }
+  .topnav a, .topnav input[type=text], .topnav .search-container button {
+    float: none;
+    display: block;
+    text-align: left;
+    width: 99%;
+    margin: 0;
+    padding: 14px;
+  }
+  .topnav input[type=text] {
+    border: 1px solid #ccc;
+  }
+}
+#main {
+  transition: margin-left .5s;
+  padding: 16px;
+}
+* {
+  box-sizing: border-box;
+}
+
+.chart {
+  float: left;
+  width: 33.33%;
+  padding: 5px;
+}
+
+/* Clearfix (clear floats) */
+.row::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+
+/* Clearfix (clear floats) */
+.row1::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+
+/* Clearfix (clear floats) */
+.row2::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+
+.column {
+  float: left;
+  width: 33%;
+  padding: 5px;
+  background-color:#b3b1b3;
+  text-align:center;
+}
+
+/* Clearfix (clear floats) */
+.container::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+    </style>
+</head>
+<body>
+<div class="topnav">
+<button class="openbtn" onclick="openNav()">☰ UAE News Watch</button>
+
+<div class="search-container">
+      {%set y =search%}
+    <form action="{{url_for('search_func', type=y)}}" autocomplete="off">
+      <input type="text" placeholder="Search.." name="search">
+      <button type="submit"><i class="fa fa-search"></i></button>
+    </form>
+  </div>
+     </div>
+<div id="mySidebar" class="sidebar">
+    <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">×</a>
+<form action="{{url_for('filter_func')}}" method="post" autocomplete="off">
+Category<select name="topic_list">
+    <option value="All">All</option>
+{% for topic in topic_list%}
+    <option value="{{topic}}" {%if result==topic%} selected="selected" {%endif%} >{{topic}}</option>
+    {%endfor%}
+</select>
+    Publication<select name="source_list">
+    <option value="All">All</option>
+{% for topic in source_list%}
+    <option value="{{topic}}" {%if source_result==topic%} selected="selected" {%endif%} >{{topic}}</option>
+    {%endfor%}
+</select>
+Bank<select name="bank_list">
+    <option value="All">All</option>
+{% for topic in bank_list%}
+    <option value="{{topic}}" {%if bank_result==topic%} selected="selected" {%endif%} >{{topic}}</option>
+    {%endfor%}
+</select>
+    Sentiment<select name="sent_list">
+    <option value="All">All</option>
+{% for topic in sent_topic%}
+    <option value="{{topic}}" {%if sent_result==topic%} selected="selected" {%endif%} >{{topic}}</option>
+    {%endfor%}
+</select>
+    {% if not(start_date) %}
+    Start Date
+    <input type="date" value="2020-03-15" name="start_date">
+    {% else %}
+    Start Date
+    <input type="date" value="{{start_date}}" name="start_date">
+    {%endif%}
+    <br>
+    {% if not(end_date) %}
+
+    End Date
+    <input type="date" value="{{max_date}}" name="end_date">
+    {% else %}
+
+    End Date<input type="date" value="{{end_date}}" name="end_date">
+    {%endif%}
+
+    <input type="submit" value="Submit">
+    </form>
+    </div>
+<div class="container">
+    <div class="column"  style="margin-right:5px;">
+            <h2>{{rows}}</h2>
+    <h3> Articles</h3>
+    </div>
+    <div class="column" style="margin-right:5px;">
+        <h2>{{source_list|length}}</h2>
+        <h3>Publications</h3>
+    </div>
+    <div class="column">
+
+        <h2>{{bank_list|length}}</h2>
+        <h3>Banks</h3>
+    </div>
+
+
+</div>
+<div class="row" id="main">
+
+    <div class="chart" id="barchart7">
+                <script>
+                    var graphs = {{fig_pub | safe}};
+                    Plotly.plot('barchart7',graphs,{});
+                </script>
+            </div>
+     <div class="chart" id="barchart9">
+                <script>
+                    var graphs = {{fig_bank| safe}};
+                    Plotly.plot('barchart9',graphs,{});
+                </script>
+            </div>
+     <div class="chart" id="barchart4">
+                <script>
+                    var graphs = {{fig_cat | safe}};
+                    Plotly.plot('barchart4',graphs,{});
+                </script>
+            </div>
+</div>
+<div class="row1">
+    <div class="chart"><a href="static/images/{{img[0]}}"height="550" width="700"><img src="static/images/{{img[0]}}" height="380" width="450"> </a></div>
+
+     <div class="chart" id="barchart">
+                <script>
+                    var graphs = {{plt_pos | safe}};
+                    Plotly.plot('barchart',graphs,{});
+                </script>
+            </div>
+     <div class="chart" id="barchart1">
+                <script>
+                    var graphs = {{plt_neg | safe}};
+                    Plotly.plot('barchart1',graphs,{});
+                </script>
+            </div>
+
+</div>
+<div class="row2">
+<div class="chart" id="piechart">
+                <script>
+                    var graphs = {{fig_sent | safe}};
+                    Plotly.plot('piechart',graphs,{});
+                </script>
+            </div>
+
+     <div class="chart" id="barchart8">
+                <script>
+                    var graphs = {{fig_json | safe}};
+                    Plotly.plot('barchart8',graphs,{});
+                </script>
+            </div>
+</div>
+</body>
+</html>

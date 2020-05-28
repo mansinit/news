@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
+    <script type="text/javascript">
+
+function fnExcelReport()
+{
+    var tab_text="<table border='2px'><tr bgcolor='#87AFC6'>";
+    var textRange; var j=0;
+    tab = document.getElementById('headerTable'); // id of table
+
+    for(j = 0 ; j < tab.rows.length ; j++)
+    {
+        tab_text=tab_text+tab.rows[j].innerHTML+"</tr>";
+        //tab_text=tab_text+"</tr>";
+    }
+
+    tab_text=tab_text+"</table>";
+    tab_text= tab_text.replace(/<A[^>]*>|<\/A>/g, "");//remove if u want links in your table
+    tab_text= tab_text.replace(/<img[^>]*>/gi,""); // remove if u want images in your table
+    tab_text= tab_text.replace(/<input[^>]*>|<\/input>/gi, ""); // reomves input params
+
+    var ua = window.navigator.userAgent;
+    var msie = ua.indexOf("MSIE ");
+
+    if (msie > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./))      // If Internet Explorer
+    {
+        txtArea1.document.open("txt/html","replace");
+        txtArea1.document.write(tab_text);
+        txtArea1.document.close();
+        txtArea1.focus();
+        sa=txtArea1.document.execCommand("SaveAs",true,"Say Thanks to Sumit.xls");
+    }
+    else                 //other browser not tested on IE 11
+        sa = window.open('data:application/vnd.ms-excel,' + encodeURIComponent(tab_text));
+
+    return (sa);
+}
+
+    </script>
+    <script>
+
+function openNav() {
+  document.getElementById("mySidebar").style.width = "250px";
+  document.getElementById("main").style.marginLeft = "250px";
+}
+
+function closeNav() {
+  document.getElementById("mySidebar").style.width = "0";
+  document.getElementById("main").style.marginLeft= "0";
+}
+</script>
+
+    <style>
+    body {
+  font-family: "Lato", sans-serif;
+}
+
+#headerTable {
+margin:20px;
+width:97%;
+border:1px solid black;
+border-collapse:collapse;
+font-size:20px;
+}
+#headerTable td{
+font-size:15px;
+padding:5px;
+
+border:1px solid black;
+border-collapse:collapse;
+}
+#headerTable th{
+font-size:20px;
+padding:5px;
+align:center;
+background-color:black;
+color:white;
+border:1px solid white;
+border-collapse:collapse;
+}
+
+#headerTable tr:nth-child(odd) {background-color: #f2f2f2;}
+.export
+{
+float:right;
+font-size:20px;
+padding:5px;
+background-color:red;
+margin:10px;
+color:white;}
+
+.chartTable{
+width:100%;
+padding:30px;
+}
+.chartTable td{
+margin:30px;
+width:40%;
+}
+
+    body {
+
+  font-family: "Lato", sans-serif;
+}
+.topnav {
+  overflow: hidden;
+  background-color: black;
+}
+
+
+input[type="date"]{
+font-size:16px;
+margin-top:10px;
+margin-bottom:10px;
+font-family: "Lato", sans-serif;
+}
+input[type="submit"]{
+color:white;
+font-size:20px;
+margin-top:20px;
+  font-family: Arial, Helvetica, sans-serif;
+background-color:red;
+}
+
+
+.sidebar {
+
+  height: 100%;
+  width: 0;
+  position: fixed;
+  z-index: 1;
+  top: 0;
+  left: 0;
+  background-color: black;
+  color:white;
+  overflow-x: hidden;
+  transition: 0.5s;
+  padding-top: 60px;
+  font-size:20px;
+
+}
+
+.sidebar select {
+  text-decoration: none;
+  font-size: 15px;
+  color: black;
+  display: block;
+  transition: 0.3s;
+  margin-top:10px;
+  margin-bottom:10px;
+}
+
+
+.sidebar .closebtn {
+  position: absolute;
+  color:white;
+  top: 0;
+  right: 25px;
+  font-size: 36px;
+  margin-left: 50px;
+}
+
+.topnav .openbtn {
+  font-size: 20px;
+  cursor: pointer;
+  background-color: black;
+  color: white;
+  padding: 10px 18px;
+  border: none;
+}
+
+.openbtn:hover {
+  background-color: #444;
+}
+
+.topnav a.active {
+  background-color: #2196F3;
+  color: white;
+}
+
+.topnav .search-container {
+  float: right;
+}
+
+.topnav input[type=text] {
+  padding: 6px;
+  margin-top: 8px;
+  font-size: 17px;
+  border: none;
+}
+
+.topnav .search-container button {
+  float: right;
+  padding: 6px 10px;
+  margin-top: 8px;
+  margin-right: 16px;
+  background: #ddd;
+  font-size: 17px;
+  border: none;
+  cursor: pointer;
+}
+
+.topnav .search-container button:hover {
+  background: #ccc;
+}
+
+@media screen and (max-width: 600px) {
+  .topnav .search-container {
+    float: none;
+  }
+  .topnav a, .topnav input[type=text], .topnav .search-container button {
+    float: none;
+    display: block;
+    text-align: left;
+    width: 100%;
+    margin: 0;
+    padding: 14px;
+  }
+  .topnav input[type=text] {
+    border: 1px solid #ccc;
+  }
+}
+#main {
+  transition: margin-left .5s;
+  padding: 16px;
+}
+* {
+  box-sizing: border-box;
+}
+
+.chart {
+  float: left;
+  width: 33.33%;
+  padding: 5px;
+}
+
+/* Clearfix (clear floats) */
+.row::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+
+    </style>
+</head>
+<body>
+<div class="topnav">
+<button class="openbtn" onclick="openNav()">☰ UAE News Watch</button>
+
+<div class="search-container">
+      {%set y =search%}
+    <form action="{{url_for('search_func', type=y)}}" autocomplete="off">
+      <input type="text" placeholder="Search.." name="search">
+      <button type="submit"><i class="fa fa-search"></i></button>
+    </form>
+  </div>
+     </div>
+<div id="mySidebar" class="sidebar">
+    <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">×</a>
+<form action="{{url_for('filter_func')}}" method="post" autocomplete="off">
+Category<select name="topic_list">
+    <option value="All">All</option>
+{% for topic in topic_list%}
+    <option value="{{topic}}" {%if result==topic%} selected="selected" {%endif%} >{{topic}}</option>
+    {%endfor%}
+</select>
+    Publication<select name="source_list">
+    <option value="All">All</option>
+{% for topic in source_list%}
+    <option value="{{topic}}" {%if source_result==topic%} selected="selected" {%endif%} >{{topic}}</option>
+    {%endfor%}
+</select>
+Bank<select name="bank_list">
+    <option value="All">All</option>
+{% for topic in bank_list%}
+    <option value="{{topic}}" {%if bank_result==topic%} selected="selected" {%endif%} >{{topic}}</option>
+    {%endfor%}
+</select>
+
+    Sentiment<select name="sent_list">
+    <option value="All">All</option>
+{% for topic in sent_topic%}
+    <option value="{{topic}}" {%if sent_result==topic%} selected="selected" {%endif%} >{{topic}}</option>
+    {%endfor%}
+</select>
+    {% if not(start_date) %}
+    Start Date
+    <input type="date" value="2020-03-15" name="start_date">
+    {% else %}
+    Start Date
+    <input type="date" value="{{start_date}}" name="start_date">
+    {%endif%}
+    <br>
+    {% if not(end_date) %}
+
+    End Date
+    <input type="date" value="{{max_date}}" name="end_date">
+    {% else %}
+
+    End Date<input type="date" value="{{end_date}}" name="end_date">
+    {%endif%}
+
+    <input type="submit" value="Submit">
+    </form>
+    </div>
+
+
+{% if string=="None" %}
+
+<div class="row">
+        {% if fig_pie | safe %}
+    <div class="chart" id="barchart" >
+                <script>
+                    var graphs = {{fig_pie | safe}};
+                    Plotly.plot('barchart',graphs,{});
+                </script>
+            </div>
+{%endif%}
+         <div class="chart" id="barchart2">
+                <script>
+                    var graphs = {{fig_tri | safe}};
+                    Plotly.plot('barchart2',graphs,{});
+                </script>
+     </div>
+<div class="chart">
+<a href="static/images/{{img1[0]}}"height="550" width="700"><img src="static/images/{{img1[0]}}" height="350" width="420"> </a>
+</div>
+</div>
+<a href="static/table/{{table_excel[0]}}" class="export" download >Export to Excel</a>
+<table id="headerTable">
+    <h3 style="margin:10px;">Article Directory</h3>
+    <tr>
+        <th width="7%">Date</th>
+        <th width="10%">Publication</th>
+        <th width="17%">Bank</th>
+        <th>Category</th>
+        <th>Title</th>
+        <th>Article</th>
+        <th>Summary</th>
+    </tr>
+
+{%for row in range(0,query|length)%}
+<tr>
+{%set x=query[row]|length%}
+            {%for col in range(x-1)%}
+        <td>
+{{query[row][col]}}
+
+        </td>
+            {%endfor%}
+
+    <td>
+        {% for row1 in text1%}
+
+        {% if row1.replace('.txt','')==query[row][x-1] %}
+        <a href="static/text/{{row1}}" download >Download Article</a>
+        {%endif%}
+        {%endfor%}
+    </td>
+
+    <td>
+        {% for row2 in summary%}
+
+        {% if row2.replace('.txt','')==query[row][x-1] %}
+        <a href="static/summaries/{{row2}}" download >Download Summary</a>
+        {%endif%}
+        {%endfor%}
+    </td>
+
+</tr>
+{%endfor%}
+
+</table>
+{%else%}
+<h2>{{string}}</h2>
+{%endif%}
+</body>
+</html>
