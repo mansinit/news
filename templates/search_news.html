@@ -72,7 +72,7 @@ font-size:20px;
 #headerTable td{
 font-size:15px;
 padding:5px;
-
+line-height:150%;
 border:1px solid black;
 border-collapse:collapse;
 }
@@ -252,7 +252,7 @@ background-color:red;
 </head>
 <body>
 <div class="topnav">
-<button class="openbtn" onclick="openNav()">☰ UAE News Watch</button>
+<button class="openbtn" onclick="openNav()">☰ MENAT News Watch</button>
 
 <div class="search-container">
       {%set y =search%}
@@ -265,6 +265,12 @@ background-color:red;
 <div id="mySidebar" class="sidebar">
     <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">×</a>
 <form action="{{url_for('filter_func')}}" method="post" autocomplete="off">
+    Country<select name="country_list">
+    <option value="All">All</option>
+{% for topic in country_list%}
+    <option value="{{topic}}" {%if country_result==topic%} selected="selected" {%endif%} >{{topic}}</option>
+    {%endfor%}
+</select>
 Category<select name="topic_list">
     <option value="All">All</option>
 {% for topic in topic_list%}
@@ -338,9 +344,11 @@ Bank<select name="bank_list">
     <h3 style="margin:10px;">Article Directory</h3>
     <tr>
         <th width="7%">Date</th>
+        <th width="4%">Country</th>
         <th width="10%">Publication</th>
         <th width="17%">Bank</th>
         <th>Category</th>
+        <th>Sentiment</th>
         <th>Title</th>
         <th>Article</th>
         <th>Summary</th>
@@ -361,13 +369,13 @@ Bank<select name="bank_list">
 
         {% if row1.replace('.txt','')==query[row][x-1] %}
         <a href="static/text/{{row1}}" download >Download Article</a>
+
         {%endif%}
         {%endfor%}
     </td>
 
     <td>
         {% for row2 in summary%}
-
         {% if row2.replace('.txt','')==query[row][x-1] %}
         <a href="static/summaries/{{row2}}" download >Download Summary</a>
         {%endif%}

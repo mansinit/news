@@ -72,7 +72,7 @@ font-size:20px;
 #headerTable td{
 font-size:15px;
 padding:5px;
-
+line-height:150%;
 border:1px solid black;
 border-collapse:collapse;
 }
@@ -250,7 +250,7 @@ padding:5px;
 </head>
 <body>
 <div class="topnav">
-<button class="openbtn" onclick="openNav()">☰ UAE News Watch</button>
+<button class="openbtn" onclick="openNav()">☰ MENAT News Watch</button>
 
 <div class="search-container">
       {%set y =search%}
@@ -263,6 +263,12 @@ padding:5px;
 <div id="mySidebar" class="sidebar">
     <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">×</a>
 <form action="{{url_for('filter_func')}}" method="post" autocomplete="off">
+    Country<select name="country_list">
+    <option value="All">All</option>
+{% for topic in country_list%}
+    <option value="{{topic}}" {%if country_result==topic%} selected="selected" {%endif%} >{{topic}}</option>
+    {%endfor%}
+</select>
 Category<select name="topic_list">
     <option value="All">All</option>
 {% for topic in topic_list%}
@@ -313,7 +319,7 @@ Bank<select name="bank_list">
 
 {% if string=="None" %}
 <div class="row">
-        {% if fig_pie | safe %}
+        {% if fig_pie !="None" %}
 
     <div class="chart" id="barchart" >
                 <script>
@@ -336,57 +342,33 @@ Bank<select name="bank_list">
         <a href="static/table/{{table_excel[0]}}" class="export" download >Export to Excel</a>
 <table id="headerTable">
     <h3 style="margin:10px;">Article Directory</h3>
+
     <tr>
         <th width="7%">Date</th>
+        <th width="5%">Country</th>
         <th width="10%">Publication</th>
         <th width="17%">Bank</th>
         <th>Category</th>
+        <th>Sentiment</th>
         <th>Title</th>
         <th>Article</th>
         <th>Summary</th>
     </tr>
 
-{%for row in range(0,query|length)%}
+{% for index, row in query.iterrows() %}
+
 <tr>
-{%set x=query[row]|length%}
-    {%if sent_result%}
-
-            {%if query[row][0]==sent_result%}
-            {%for col in range(1,x-1)%}
-        <td>
-{{query[row][col]}}
-        </td>
-            {%endfor%}
-    <td>
-        {% for row1 in text1%}
-
-        {% if row1.replace('.txt','')==query[row][x-1] %}
-        <a href="static/text/{{row1}}" download >Download Article</a>
-        {%endif%}
-        {%endfor%}
-    </td>
-
-    <td>
-        {% for row2 in summary%}
-
-        {% if row2.replace('.txt','')==query[row][x-1] %}
-        <a href="static/summaries/{{row2}}" download >Download Summary</a>
-        {%endif%}
-        {%endfor%}
-    </td>
-    {%endif%}
-
-    {%else%}
-    {%for col in range(1,x-1)%}
-        <td>
-{{query[row][col]}}
-        </td>
+{%set x=8%}
+    {%for col in range(0,x-1)%}
+           <td>{{row[list_columns[col]]}}</td>
     {%endfor%}
     <td>
         {% for row1 in text1%}
-
-        {% if row1.replace('.txt','')==query[row][x-1] %}
+        {% if row1.replace('.txt','')==row[list_columns[x]] %}
         <a href="static/text/{{row1}}" download >Download Article</a>
+        {%endif%}
+        {%if row[list_columns[x]]==""%}
+        <a href="static/text/file.txt" download >Download Article</a>
         {%endif%}
         {%endfor%}
     </td>
@@ -394,13 +376,14 @@ Bank<select name="bank_list">
     <td>
         {% for row2 in summary%}
 
-        {% if row2.replace('.txt','')==query[row][x-1] %}
+        {% if row2.replace('.txt','')==row[list_columns[x]] %}
         <a href="static/summaries/{{row2}}" download >Download Summary</a>
+        {%endif%}
+        {%if row[list_columns[x]]==""%}
+        <a href="static/text/file.txt" download >Download Article</a>
         {%endif%}
         {%endfor%}
     </td>
-{%endif%}
-
 
 </tr>
 {%endfor%}

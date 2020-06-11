@@ -1,0 +1,10 @@
+[0602/160916.489:ERROR:process_reader_win.cc(123)] NtOpenThread: {Access Denied} A process has requested access to an object, but has not been granted those access rights. (0xc0000022)
+[0602/160916.583:ERROR:exception_snapshot_win.cc(98)] thread ID 2848 not found in process
+[0602/160919.567:ERROR:process_reader_win.cc(123)] NtOpenThread: {Access Denied} A process has requested access to an object, but has not been granted those access rights. (0xc0000022)
+[0602/160919.567:ERROR:exception_snapshot_win.cc(98)] thread ID 10312 not found in process
+[0609/213159.154:ERROR:file_io_win.cc(179)] CreateFile C:\Users\MANSID~1\AppData\Local\Temp\scoped_dir16928_1204369381\Crashpad\settings.dat: The process cannot access the file because it is being used by another process. (0x20)
+[0609/220805.150:ERROR:file_io_win.cc(179)] CreateFile C:\Users\MANSID~1\AppData\Local\Temp\scoped_dir11464_589318504\Crashpad\settings.dat: The process cannot access the file because it is being used by another process. (0x20)
+[0609/221040.215:ERROR:process_info.cc(375)] NtQuerySystemInformation SystemExtendedHandleInformation: The specified information record length does not match the length required for the specified information class. (0xc0000004)
+[0609/221233.985:ERROR:process_info.cc(375)] NtQuerySystemInformation SystemExtendedHandleInformation: The specified information record length does not match the length required for the specified information class. (0xc0000004)
+[0609/221416.535:ERROR:process_info.cc(375)] NtQuerySystemInformation SystemExtendedHandleInformation: The specified information record length does not match the length required for the specified information class. (0xc0000004)
+[0609/224657.299:ERROR:process_info.cc(375)] NtQuerySystemInformation SystemExtendedHandleInformation: The specified information record length does not match the length required for the specified information class. (0xc0000004)

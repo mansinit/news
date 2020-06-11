@@ -176,13 +176,15 @@ def count_plz(word, doc):
 
     return count1
 
-def national(link,z,x,source):
+def national(link,z,x,source,country):
     headline_list=[]
     df = {}
     if source=="The National":
         url = 'https://thenational.ae/' + link
     elif source=="Khaleej Times":
         url='https://www.khaleejtimes.com/'+link
+    elif source=="Egypt Today":
+        url='https://www.egypttoday.com/'+link
     else:
         url=link
     article = Article(url)
@@ -190,6 +192,7 @@ def national(link,z,x,source):
     article.parse()
     article.nlp()
     if article.title not in headline_list:
+        df['country']=country
         df['source']=source
         df['bank'] = x
         df['date']=z
@@ -231,7 +234,9 @@ def assign_topics(corpus,headline):
         list_contact=["digital","contactless","payment","cashless",'digital services','digital platform',"money","transfer","transaction","app","remit"
                       'mastercard',"contactless payment","contactless cashless payment","cashless payment"]
         list_credit_inc=["credit line","credit limit","credit card limit","credit card","credit limit increase","credit line increase",
-                     "increase","card limit","credit line decrease","credit limit decrease"]
+                     "decrease","increase","card limit","credit line decrease","credit limit decrease"]
+        list_finan=["financial report","financial statement","financial status","annual report","cash flow statements",
+                    "balance sheet","business report","business result","financial result"]
         list_cust=["customer"]
         list_sup=["support","stimulus package","relief package"]
         list_bus=["business"]
@@ -241,7 +246,7 @@ def assign_topics(corpus,headline):
         freq_cred_inc=font_know(headline[doc],corpus[doc],list_credit_inc,"credit card limit","credit limit increase")
         freq_cust=font_know(headline[doc],corpus[doc],list_cust,"customer","bank")
         freq_sup=font_know(headline[doc],corpus[doc],list_sup,"support","bank")
-
+        freq_fin=font_know(headline[doc],corpus[doc],list_finan,"financial","bank")
         print(headline[doc])
         list_freq=[freq_cust,freq_forb,freq_cred_inc,freq_sup,freq_cont]
         if (max(list_freq)==freq_forb and freq_forb>=0.05)  :
@@ -256,64 +261,83 @@ def assign_topics(corpus,headline):
             topic="Customer"
         elif freq_sup>=0.05 and max(list_freq)==freq_sup:
             topic="Support"
+
+        elif freq_fin>=0.05 and max(list_finan)==freq_fin:
+            topic="Financial Result"
         else:
             if "business" in corpus[doc] :
                 topic="Business"
-            elif  "government" in corpus[doc]:
-                topic="Government"
             else:
                 topic="Others"
 
         topic_list.append(topic)
     return topic_list
-
 def national_source_url(list_bank,headers):
+    import csv
     for x in list_bank:
-
+        f=0
+        print("NATIONAL SOURCE URL")
+        print(x)
         for i in range(1,25):
+            print(i)
             url="https://www.thenational.ae/search?q={}&fq=&page={}".format(x,i)
             xb=x
             if '+' in x:
                 xb=x.replace('+',' ')
-
                 if 'Citi' in xb:
-
                     xb=xb.replace(" ","")
             response = requests.get(url, headers=headers)
             content = response.content
             soup = BeautifulSoup(content, "html.parser")
-
             list_tr = soup.find_all("div", attrs={"class": "small-article-desc $sectionColour"})
             for tr in list_tr:
                 x1 = (tr.find('a'))
+                title=x1.h2.text
+                print(title)
+
                 link = (x1.get('href'))
                 date_p = (x1.em.text)
+                print(date_p)
                 date_f = datetime.datetime.strptime(date_p, '%B %d, %Y').strftime('%Y/%m/%d')
                 z = datetime.datetime.strptime(date_f, '%Y/%m/%d')
-                date_au = datetime.datetime(2020, 3, 15)
-                y = datetime.datetime(2020, 5, 10)
-                if z >= date_au and z <= datetime.datetime.now():
-                    print(xb)
-                    national(link,z,xb,'The National')
+                dates=[]
+                df = pd.read_csv('news_articles.csv')
+                for ind in df.index:
+                    if df['source'][ind] == "The National" and df['bank'][ind] == xb:
+                        dates.append(df['date'][ind])
+                title_list=[]
+                if len(dates) > 0:
+                    date_p=max((dates))
+                    title_list=(df[df['date'] == date_p]['Headline']).to_list()
+                    date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
+                    z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
+                    date_author = z1
                 else:
+                    date_author = datetime.datetime(2020, 3, 15)
+                print(title_list)
+                if z >= date_author and z <= datetime.datetime.now():
+                    if title not in title_list:
+                        print(title)
+                        print(xb)
+                        print(z)
+                        national(link,z,xb,'The National',"UAE")
+                else:
+                    f=1
                     break
+            if f==1:
+                break
 
 def arabian(driver):
-    results = driver.find_elements_by_xpath('''//*[@id="subsection-results"]/div[300]''')
-    driver.implicitly_wait(200)
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    driver.implicitly_wait(200)
     list = []
     list_bank = ['Mashreq', 'Rakbank', 'HSBC', 'First Abu Dhabi Bank', 'Abu Dhabi Commercial Bank', 'Emirates NBD',
-                 'UAE Central Bank',
+
                  'Abu Dhabi Islamic Bank', 'Standard Chartered Bank', 'Citibank']
     for x in list_bank:
         list.append(x.upper())
     print(list_bank)
-    headline_list=[]
-    list_url=[]
-    xlist=[]
-    for i in range(1, 300):
+    f=0
+    for i in range(1, 10):
         x_path = '''//*[@id="subsection-results"]/div[{0}]'''.format(i)
         results = driver.find_element_by_xpath(x_path)
         bankname1 = results.find_element_by_tag_name('span')
@@ -324,6 +348,7 @@ def arabian(driver):
             results = (results.find_element_by_tag_name('h3'))
             res = results.find_element_by_tag_name('a')
             url=res.get_attribute('href')
+            title=res.text
             response = requests.get(url, headers=headers)
             content = response.content
             soup = BeautifulSoup(content, "html.parser")
@@ -333,34 +358,138 @@ def arabian(driver):
                 date=(tr.span.text)
 
             date_f = datetime.datetime.strptime(date, '%a %d %b %Y %I:%M %p').strftime('%Y/%m/%d')
-            z = datetime.datetime.strptime(date_f, '%Y/%m/%d')
-            date_author = datetime.datetime(2020, 3, 15)
+
             if bankname=="HSBC":
                 bankname="HSBC"
             elif bankname=="EMIRATES NBD":
                 bankname="Emirates NBD"
-            elif bankname=="UAE CENTRAL BANK":
-                bankname="UAE Central Bank"
             else:
                 bankname=bankname.title()
-            if z >= date_author and z <= datetime.datetime.now():
-                print(bankname)
-                national(url, z, bankname, 'Arabian Business')
+            z = datetime.datetime.strptime(date_f, '%Y/%m/%d')
+            dates = []
+            df = pd.read_csv('news_articles.csv')
+            for ind in df.index:
+                if df['source'][ind] == "Arabian Business" and df['bank'][ind] == bankname:
+                    dates.append(df['date'][ind])
+            title_list=[]
+            if len(dates) > 0:
+                date_p = (max(dates))
+                title_list=(df[df['date'] == date_p]['Headline']).to_list()
+                date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
+                z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
+                date_author = z1
             else:
+                date_author = datetime.datetime(2020, 3, 15)
+            print(title_list)
+            print(dates)
+            print(bankname)
+            if z >= date_author and z <= datetime.datetime.now():
+                if title not in title_list:
+                    print(title)
+                    print(bankname)
+                    print(z)
+                national(url, z, bankname, 'Arabian Business',"UAE")
+            else:
+                f=1
                 break
+        if f==1:
+            break
+
+def egypt(headers):
+    url="https://www.egypttoday.com/Article/Search?title=nbe"
+    response = requests.get(url, headers=headers)
+    content = response.content
+    soup = BeautifulSoup(content, "html.parser")
+    list_tr = soup.find_all("div", attrs={"class": "top-reviews-item col-xs-12 search-item article"})
+    for tr in list_tr:
+        x = tr.a
+        link=(x.get('href'))
+        title=x.text.strip()
+        date_p = tr.span.text.strip()
+        date_f = datetime.datetime.strptime(date_p, '%a, %b. %d, %Y').strftime('%Y/%m/%d')
+        z = datetime.datetime.strptime(date_f, '%Y/%m/%d')
+        dates = []
+        df = pd.read_csv('news_articles.csv')
+        for ind in df.index:
+            if df['source'][ind] == "Egypt Today" and df['bank'][ind] == "National Bank of Egypt":
+                dates.append(df['date'][ind])
+        title_list=[]
+        if len(dates) > 0:
+            date_p = (max(dates))
+            title_list=(df[df['date'] == date_p]['Headline']).to_list()
+            date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
+            z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
+            date_author = z1
+        else:
+            date_author = datetime.datetime(2020, 3, 15)
+
+        if z >= date_author and z <= datetime.datetime.now():
+            if title not in title_list:
+                print(title)
+                print("NBE")
+                print(z)
+                national(link, z, "National Bank of Egypt", 'Egypt Today',"Egypt")
+        else:
+            break
+
+
+def turkey(headers):
+    f=0
+    for i in range(1,10):
+        url="https://www.dailysabah.com/search?query=ziraat%20bank&pgno={}".format(i)
+        response = requests.get(url, headers=headers)
+        content = response.content
+        soup = BeautifulSoup(content, "html.parser")
+        list_tr = soup.find_all("div", attrs={"class": "widget_content"})
+
+        for tr in list_tr:
+            x = tr.find("a")
+            title=x.text.strip()
+            link=(x.get('href'))
+            date_p = tr.find("div", attrs={"class": "date_text"}).text.strip()
+            date_f = datetime.datetime.strptime(date_p, '%b %d, %Y').strftime('%Y/%m/%d')
+            z = datetime.datetime.strptime(date_f, '%Y/%m/%d')
+            dates = []
+            df = pd.read_csv('news_articles.csv')
+            for ind in df.index:
+                if df['source'][ind] == "Daily Sabah" and df['bank'][ind] == "Ziraat Bank":
+                    dates.append(df['date'][ind])
+            title_list=[]
+            if len(dates) > 0:
+                date_p = (max(dates))
+                title_list=(df[df['date'] == date_p]['Headline']).to_list()
+                date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
+                z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
+                date_author = z1
+            else:
+                date_author = datetime.datetime(2020, 3, 15)
+            print(title_list)
+            if z >= date_author and z <= datetime.datetime.now():
+                if title not in title_list:
+                    print(title)
+                    print("Ziraat")
+                    print(z)
+                    national(link, z, "Ziraat Bank", 'Daily Sabah',"Turkey")
+            else:
+                f=1
+                break
+        if f==1:
+            break
+
 
 def khaleej_source_url(list_bank,headers):
+    import csv
     for bank in list_bank:
-
+        f=0
+        print("KHALEEJ SOURCE URL")
+        print(bank)
         for i in range(1,25):
+            print(i)
             url="https://www.khaleejtimes.com/search?text={}&pagenumber={}".format(bank,i)
-
             bank1=bank
             if '+' in bank:
                 bank1=bank.replace('+',' ')
-
                 if 'Citi' in bank1:
-
                     bank1=bank1.replace(" ","")
             response = requests.get(url, headers=headers)
             content = response.content
@@ -372,20 +501,40 @@ def khaleej_source_url(list_bank,headers):
                 x=tr.find_all("li")
                 for y in x:
                     x1 = (y.find('a'))
+                    title=x1.text
                     link = (x1.get('href'))
                     date_p = y.find("div", attrs={"class": "author_date"}).text
                     date_f = datetime.datetime.strptime(date_p, '%d %B, %Y').strftime('%Y/%m/%d')
                     z = datetime.datetime.strptime(date_f, '%Y/%m/%d')
-                    date_author = datetime.datetime(2020, 3, 15)
-                    if z >= date_author and z <= datetime.datetime.now():
-                        print(bank1)
-                        national(link, z, bank1, 'Khaleej Times')
+                    dates = set()
+                    df = pd.read_csv('news_articles.csv')
+                    for ind in df.index:
+                        if df['source'][ind] == "Khaleej Times" and df['bank'][ind] == bank1:
+                            dates.add(df['date'][ind])
+                    title_list=[]
+                    if len(dates) > 0:
+                        date_p = (max(dates))
+                        title_list = (df[df['date'] == date_p]['Headline']).to_list()
+                        date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
+                        z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
+                        date_author = z1
                     else:
+                        date_author=datetime.datetime(2020, 3, 15)
+                    print(title_list)
+                    if z >= date_author and z <= datetime.datetime.now():
+                        if title not in title_list:
+                            print(title)
+                            print(bank1)
+                            print(z)
+                            national(link, z, bank1, 'Khaleej Times',"UAE")
+                    else:
+                        f=1
                         break
-
+            if f==1:
+                break
 
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'}
-list_bank=['Mashreq','Rakbank','HSBC','First+Abu+Dhabi+Bank','Abu+Dhabi+Commercial+Bank','Emirates+NBD','UAE+Central+Bank',
+list_bank=['Mashreq','Rakbank','HSBC','First+Abu+Dhabi+Bank','Abu+Dhabi+Commercial+Bank','Emirates+NBD',
 'Abu+Dhabi+Islamic+Bank','Standard+Chartered+Bank','Citibank','Citi+bank']
 #list_bank=['Citibank','Citi+bank']
 
@@ -397,9 +546,12 @@ driver.implicitly_wait(30)
 driver.get(HOME_PAGE_URL)
 driver.implicitly_wait(30)
 arabian(driver)
-
 national_source_url(list_bank,headers)
 khaleej_source_url(list_bank,headers)
+turkey(headers)
+
+egypt(headers)
+
 news_df=pd.DataFrame(name_list)
 
 news_df['full_text'] = news_df["Raw Article"]
@@ -410,5 +562,18 @@ news_df['Sentiment']=sentiment_list(news_df['clean_title'])
 norm_corpus = list(news_df['clean_text'])
 
 
-news_df.to_csv('news_information1.csv')
+news_df.to_csv('news_articles.csv',mode='a',header=False,index=False)
 
+#news_df.to_csv('news_articles.csv',index=False)
+
+import csv
+list_finan = ["financial result", "financial report", "business report","financial statement"]
+with open('news_articles.csv', 'r',encoding='utf-8') as inp, open('menat_news_articles.csv', 'w',encoding='utf-8') as out:
+    writer = csv.writer(out)
+    reader=csv.reader(inp)
+    for row in reader:
+        if any(word in row[9] for word in list_finan):
+            row[11]="Financial Result"
+            writer.writerow(row)
+        else:
+            writer.writerow(row)

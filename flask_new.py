@@ -23,7 +23,7 @@ random_number=random.randint(0,99999)
 from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
 
 
-news_df = pd.read_csv('news_information1.csv')
+news_df = pd.read_csv('news_articles.csv')
 PEOPLE_FOLDER = os.path.join('static')
 app.config['UPLOAD_FOLDER'] = PEOPLE_FOLDER
 
@@ -320,6 +320,65 @@ def bigram_or_trigram(corpus,stopwords,string):
 @app.route('/')
 def home():
     return render_template("first_news.html")
+def cluster(df5,rows):
+    from pattern.text.en import parsetree
+
+    import pickle
+    with open('news.pkl', 'wb') as f:
+        pickle.dump(df5, f)
+
+    author1 = pickle.load(open("news.pkl", "rb"))
+    print(author1[0])
+    for story in author1:
+        story["title_length"] = len(story["title"])
+        story["title_chunks"] = [chunk.type for chunk in parsetree(story["title"])[0].chunks]
+        story["title_chunks_length"] = len(story["title_chunks"])
+    print(author1[0])
+    df1 = pd.DataFrame.from_dict(author1)
+    print(df1.describe())
+    chunks = [author["title_chunks"] for author in author1]
+    m = np.zeros((rows, rows))
+    for a, chunkx in enumerate(chunks):
+        for b, chunky in enumerate(chunks):
+            m[a][b] = difflib.SequenceMatcher(None, chunkx, chunky).ratio()
+    print(m[a][b])
+    from sklearn.manifold import TSNE
+    tsne_model = TSNE(n_components=2, verbose=1, random_state=0)
+    tsne = tsne_model.fit_transform(m)
+    print(tsne)
+    from sklearn.cluster import MiniBatchKMeans
+    kmeans_model = MiniBatchKMeans(n_clusters=5, init='k-means++', n_init=1, init_size=1000, batch_size=1000,
+                                   verbose=False, max_iter=1000)
+    kmeans = kmeans_model.fit(m)
+    kmeans_clusters = kmeans.predict(m)
+    kmeans_distance = kmeans.transform(m)
+    import bokeh.plotting as bp
+    from bokeh.models import HoverTool, BoxSelectTool
+    from bokeh.plotting import figure, show, output_notebook
+
+    colormap = np.array([
+        "#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78", "#2ca02c",
+        "#98df8a", "#d62728", "#ff9896", "#9467bd", "#c5b0d5",
+        "#8c564b", "#c49c94", "#e377c2", "#f7b6d2", "#7f7f7f",
+        "#c7c7c7", "#bcbd22", "#dbdb8d", "#17becf", "#9edae5"
+    ])
+
+    output_notebook()
+    plot_author1 = bp.figure(plot_width=900, plot_height=700, title="Author1",
+                             tools="pan,wheel_zoom,box_zoom,reset,hover,previewsave",
+                             x_axis_type=None, y_axis_type=None, min_border=1)
+    plot_author1.scatter(x=tsne[:, 0], y=tsne[:, 1],
+                         color=colormap[kmeans_clusters],
+                         source=bp.ColumnDataSource({
+                             "chunks": [x["title_chunks"] for x in clean_title],
+                             "title": [x["title"] for x in clean_title],
+                             "cluster": kmeans_clusters
+                         }))
+
+    hover = plot_author1.select(dict(type=HoverTool))
+    hover.tooltips = {"chunks": "@chunks (title: \"@title\")", "cluster": "@cluster"}
+    show(plot_author1)
+
 
 @app.route('/home',methods=["get","post"])
 def showjson():
@@ -328,7 +387,7 @@ def showjson():
         file_path = os.path.join(folder, filename)
         os.remove(file_path)
 
-    news_df = pd.read_csv('news_information1.csv')
+    news_df = pd.read_csv('news_articles.csv')
     news_df.to_sql('users', con=engine)
     topic_l = engine.execute('''Select distinct Topic from users''').fetchall()
     topic_list=[]
@@ -337,6 +396,10 @@ def showjson():
         topic_list.append(tr[0])
 
     search = request.form.get("search")
+    country_l=engine.execute('''Select distinct country from users''').fetchall()
+    country_list = []
+    for tr in country_l:
+        country_list.append(tr[0])
     source_l=engine.execute('''Select distinct source from users''').fetchall()
     source_list = []
     for tr in source_l:
@@ -357,6 +420,9 @@ def showjson():
     df={}
     i=0
 
+    clean_title=engine.execute('''Select clean_title from users''').fetchall()
+    df5=pd.DataFrame(clean_title,columns=["title"])
+    #cluster(df5,rows)
     colors=["red","grey","black"]
     for sent in sent_topic:
         topic_count=engine.execute('''Select Topic,Count(*) from users where Sentiment=? group by Topic''',(sent,)).fetchall()
@@ -382,11 +448,6 @@ def showjson():
 
     fig_sent=create_graphs(sent_topic,sent_count1,"sentiment")
     print(fig_sent)
-    from sklearn.feature_extraction.text import CountVectorizer
-    cs = CountVectorizer(max_features=15000)
-    X = cs.fit_transform(news_df['clean_text']).toarray()
-    print(X)
-    print("*************************************8")
     list_words = fetch_sentiment_using_vader(news_df['clean_text'])
 
     stopwords = stopwords_for_wordcount(news_df['clean_text'])
@@ -406,7 +467,8 @@ def showjson():
     images_list = os.listdir(os.path.join(app.static_folder, "images"))
     return render_template('news_home.html',rows=rows,fig_pub=fig_pub,topic_list=topic_list,img=images_list,plt_pos=fig_pos,plt_tri=fig_tri,plt_neg=fig_neg,
                            bank_list=bank_list,fig_json=fig_json,source_list=source_list,max_date=max_date,fig_cat=fig_cat,
-                           fig_sent=fig_sent,search=search,fig_bank=fig_bank,sent_topic=sent_topic)
+                           fig_sent=fig_sent,search=search,fig_bank=fig_bank,sent_topic=sent_topic,country_list=country_list)
+
 @app.route('/category',methods=["get","post"])
 def filter_func():
 
@@ -423,13 +485,17 @@ def filter_func():
         file_path = os.path.join(folder, filename)
         os.remove(file_path)
     search = request.form.get("search")
-    news_df = pd.read_csv('news_information1.csv')
+    news_df = pd.read_csv('news_articles.csv')
     news_df.to_sql('users', con=engine)
     topic_l = engine.execute('''Select distinct Topic from users''').fetchall()
     topic_list = []
     for tr in topic_l:
         topic_list.append(tr[0])
 
+    country_l=engine.execute('''Select distinct country from users''').fetchall()
+    country_list = []
+    for tr in country_l:
+        country_list.append(tr[0])
     source_l=engine.execute('''Select distinct source from users''').fetchall()
     source_list = []
     for tr in source_l:
@@ -442,86 +508,46 @@ def filter_func():
 
     for x in end_date:
         max_date=x[0]
+    country_result=request.form["country_list"]
     result=request.form["topic_list"]
     source_result=request.form["source_list"]
     bank_result=request.form["bank_list"]
     sent_result=request.form["sent_list"]
     start_date=request.form["start_date"]
     end_date=request.form["end_date"]
-
-    if result!="All":
-        if source_result!="All" and bank_result!="All":
-
-            string="Following results are for "+bank_result+" from "+source_result+" site."
-            query=engine.execute('''Select Sentiment,date,source,bank,Topic,Headline,clean_title from users where Topic=? and source=? and bank=? 
-             and date between ? and ?''',(str(result),str(source_result),str(bank_result),start_date,end_date)).fetchall()
-            query2=engine.execute('''Select "clean_text",Sentiment from users where Topic=? and source=? and bank=? and date between ? and ?''',(str(result),
-                            str(source_result),str(bank_result),start_date,end_date)).fetchall()
-            query3=engine.execute('''Select clean_title,"Raw Article", Summary from users where  Topic=? and source=? and bank=? 
-            and date between ? and ?''',(str(result),
-                            str(source_result),str(bank_result),start_date,end_date)).fetchall()
-
-        elif source_result!="All" and bank_result=="All":
-            string="Following results are from "+source_result+" site."
-            query = engine.execute('''Select Sentiment,date,source,bank,Topic,Headline,clean_title from users where Topic=? and source=? 
-             and date between ? and ?''',
-                                   (str(result),
-                                    str(source_result),start_date,end_date)).fetchall()
-            query2=engine.execute('''Select "clean_text",Sentiment from users where Topic=? and source=? and date between ? and ? ''',(str(result),
-                            str(source_result),start_date,end_date)).fetchall()
-            query3 = engine.execute('''Select clean_title,"Raw Article", Summary from users where Topic=? and source=? 
-             and date between ? and ?''',(str(result),
-                            str(source_result),start_date,end_date)).fetchall()
-        elif source_result=="All" and bank_result!="All":
-            query = engine.execute('''Select Sentiment,date,source,bank,Topic,Headline,clean_title from users where Topic=? and bank=? 
-             and date between ? and ?''',(str(result),str(bank_result),start_date,end_date)).fetchall()
-            query2=engine.execute('''Select "clean_text",Sentiment from users where Topic=? and bank=? and date between ? and ?''',(str(result)
-                           ,str(bank_result),start_date,end_date)).fetchall()
-            query3 = engine.execute('''Select clean_title,"Raw Article", Summary from users where Topic=? and bank=? and date between ? and ?
-            ''',(str(result) ,str(bank_result),start_date,end_date)).fetchall()
+    column=['country','Topic','source','bank','Sentiment']
+    list=[country_result,result,source_result,bank_result,sent_result]
+    final=[]
+    column1=[]
+    df=pd.read_csv('news_articles.csv')
+    for i in range(0,len(list)):
+        if list[i]!="All":
+            print(list[i])
+            final.append(list[i])
+            column1.append(column[i])
+    for x in range(0,len(column1)):
+        if x==0:
+            df1=df[df[column1[x]]==final[x]]
         else:
-            query = engine.execute('''Select Sentiment,date,source,bank,Topic,Headline,clean_title from users where Topic=? and date between ? and ?  ''',
-                                   (str(result),start_date,end_date)).fetchall()
-            query2=engine.execute('''Select "clean_text",Sentiment from users where Topic=?  and date between ? and ?  ''',(str(result),start_date,end_date
-           )).fetchall()
-            query3 = engine.execute('''Select clean_title,"Raw Article", Summary from users where Topic=?   and date between ? and ?''',
-                                    (str(result),start_date,end_date)).fetchall()
-
-    else:
-        if source_result!="All" and bank_result!="All":
-            string="Following results are for "+bank_result+" from "+source_result+" site."
-            query=engine.execute('''Select Sentiment,date,source,bank,Topic,Headline,clean_title from users where source=? and bank=?
-               and date between ? and ?''',(
-                            str(source_result),str(bank_result),start_date,end_date)).fetchall()
-            query2=engine.execute('''Select "clean_text",Sentiment from users where source=? and bank=?  and date between ? and ? ''',(
-                            str(source_result),str(bank_result),start_date,end_date)).fetchall()
-            query3 = engine.execute('''Select clean_title,"Raw Article", Summary from users where source=? and bank=?  and date between ? and ? ''',(
-                            str(source_result),str(bank_result),start_date,end_date)).fetchall()
-
-        elif source_result!="All" and bank_result=="All":
-            string="Following results are from "+source_result+" site."
-            query = engine.execute('''Select Sentiment,date,source,bank,Topic,Headline,clean_title from users where source=? and date between ? and ? ''',
-                                   (str(source_result),start_date,end_date)).fetchall()
-            query2=engine.execute('''Select "clean_text",Sentiment from users where  source=?  and date between ? and ?''',(
-                            str(source_result),start_date,end_date)).fetchall()
-            query3 = engine.execute('''Select clean_title,"Raw Article", Summary from users where  source=? and date between ? and ?''',(
-                            str(source_result),start_date,end_date)).fetchall()
-        elif source_result=="All" and bank_result!="All":
-            query = engine.execute('''Select Sentiment,date,source,bank,Topic,Headline,clean_title from users where  bank=?  and date between ? and ? ''',
-                                   (str(bank_result),start_date,end_date)).fetchall()
-            query2=engine.execute('''Select "clean_text",Sentiment from users where  bank=?  and date between ? and ?''',(
-                           str(bank_result),start_date,end_date)).fetchall()
-            query3 = engine.execute('''Select clean_title,"Raw Article", Summary from users where  bank=?  and date between ? and ?''',(
-                           str(bank_result),start_date,end_date)).fetchall()
-        else:
-            query = engine.execute('''Select Sentiment,date,source,bank,Topic,Headline,clean_title from users  where date between ? and ? ''',
-                                   ( start_date, end_date) ).fetchall()
-            query2=engine.execute('''Select "clean_text",Sentiment from users where date between ? and ?   ''',( start_date, end_date)).fetchall()
-            query3 = engine.execute('''Select clean_title,"Raw Article", Summary from users where date between ? and ? '''
-                                    ,( start_date, end_date)).fetchall()
-
+            df1=df1[df1[column1[x]]==final[x]]
+    df1=df1[(df1['date']>=start_date)]
+    df1=df1[(df1['date']<=end_date)]
+    print(df1)
+    df1=df1.sort_values(by=['date'])
     clean_text_list = []
     sent_list=[]
+    for row in df1.index:
+        clean_text_list.append(df1['clean_text'][row])
+        sent_list.append(df1['Sentiment'][row])
+        create_text(df1['clean_title'][row],df1["Raw Article"][row])
+        create_summary(df1['clean_title'][row],df1['Summary'][row])
+    list_columns=['date','country', 'source', 'bank', 'Topic' ,'Sentiment' ,'Headline','clean_text','clean_title',"Raw Article",'Summary']
+    df2 = df1[list_columns]
+    df2 = (df2.drop(['clean_text', 'clean_title'], axis=1))
+    list_columns1=["Date","Country","Publication","Bank","Category","Sentiment","Title","Article","Summary"]
+    df2.columns=list_columns1
+    df2.to_excel('static/table/article_directory.xlsx')
+    table_list = os.listdir(os.path.join(app.static_folder, "table"))
 
     sent_count = engine.execute('''Select Sentiment,Count(*) from users group by Sentiment''').fetchall()
     sent_topic = []
@@ -529,15 +555,12 @@ def filter_func():
     for tx in sent_count:
         sent_topic.append(tx[0])
         sent_count1.append(tx[1])
-    for x in query2:
-        clean_text_list.append(x[0])
-        if len(x)>1:
-            sent_list.append(x[1])
 
     if len(clean_text_list)==0:
         string="No results found."
         return render_template("index_news.html",string=string,topic_list=topic_list,result=result,source_result=source_result,sent_topic=sent_topic,
-                           source_list=source_list,bank_list=bank_list,bank_result=bank_result,start_date=start_date,end_date=end_date)
+                           source_list=source_list,bank_list=bank_list,bank_result=bank_result,start_date=start_date,end_date=end_date
+                               ,country_list=country_list)
     list_words = fetch_sentiment_using_vader(clean_text_list)
     stopwords = stopwords_for_wordcount(clean_text_list)
     count_vectorizer = CountVectorizer(stop_words=stopwords[0])
@@ -547,39 +570,22 @@ def filter_func():
     fig_tri = bigram_or_trigram(clean_text_list, stopwords, "bigram")
 
     images_list = os.listdir(os.path.join(app.static_folder, "images"))
-    article_text=[]
-    title_text=[]
-    summary_text=[]
-    for row in query3:
-        article_text.append(row[1])
-        title_text.append(row[0])
-        summary_text.append(row[2])
-        create_text(row[0],row[1])
-        create_summary(row[0],row[2])
+
     text_list1 = os.listdir(os.path.join(app.static_folder, "text"))
     summary_list1=os.listdir(os.path.join(app.static_folder, "summaries"))
-    df1=pd.DataFrame(query,columns=['Sentiment','Date','Publication','Bank','Category','Title','Clean title'])
-    df1=(df1.drop(['Sentiment', 'Clean title'], axis=1))
-    df2=pd.DataFrame(query3,columns=['Clean title','Raw Article','Summary'])
-    df2=(df2.drop(['Clean title'],axis=1))
-    frames=[df1,df2]
-    df=pd.concat(frames,axis=1)
-    print(df)
-    df.to_excel('static/table/article_directory.xlsx')
-    table_list = os.listdir(os.path.join(app.static_folder, "table"))
     if sent_result == "All":
         fig_pie=count_sent_pie(Counter(sent_list).keys(),Counter(sent_list).values())
 
-        return render_template("index_news.html",topic_list=topic_list,result=result,source_result=source_result,summary=summary_list1,
+        return render_template("index_news.html",topic_list=topic_list,result=result,source_result=source_result,summary=summary_list1,country_result=country_result,
                            source_list=source_list,sent_topic=sent_topic,bank_list=bank_list,bank_result=bank_result,start_date=start_date,end_date=end_date,
-                           max_date=max_date,query=query,fig_pos=fig_pos,string="None",search=search,fig_pie=fig_pie,
-                           fig_tri=fig_tri,fig_neg=fig_neg,img1=images_list,text1=text_list1,table_excel=table_list)
+                           max_date=max_date,query=df1,fig_pos=fig_pos,string="None",search=search,fig_pie=fig_pie,country_list=country_list,
+                           fig_tri=fig_tri,fig_neg=fig_neg,img1=images_list,text1=text_list1,table_excel=table_list,list_columns=list_columns)
     else:
 
         return render_template("index_news.html",topic_list=topic_list,result=result,source_result=source_result,summary=summary_list1,
                            source_list=source_list,sent_topic=sent_topic,bank_list=bank_list,bank_result=bank_result,start_date=start_date,end_date=end_date,
-                           max_date=max_date,query=query,fig_pos=fig_pos,string="None",search=search,sent_result=sent_result,
-                           fig_tri=fig_tri,fig_neg=fig_neg,img1=images_list,text1=text_list1,table_excel=table_list)
+                           max_date=max_date,query=df1,fig_pos=fig_pos,string="None",search=search,sent_result=sent_result,list_columns=list_columns,
+                           fig_tri=fig_tri,fig_neg=fig_neg,img1=images_list,text1=text_list1,table_excel=table_list,country_list=country_list,country_result=country_result)
 @app.route('/search',methods=["get","post"])
 def search_func():
     result = request.args.get('search')
@@ -597,9 +603,14 @@ def search_func():
         file_path = os.path.join(folder, filename)
         os.remove(file_path)
     search = request.form.get("search")
-    news_df = pd.read_csv('news_information1.csv')
+    news_df = pd.read_csv('news_articles.csv')
     news_df.to_sql('users', con=engine)
     sent_list=news_df['Sentiment'].unique()
+
+    country_l=engine.execute('''Select distinct country from users''').fetchall()
+    country_list = []
+    for tr in country_l:
+        country_list.append(tr[0])
     topic_l = engine.execute('''Select distinct Topic from users''').fetchall()
     topic_list = []
     for tr in topic_l:
@@ -623,8 +634,8 @@ def search_func():
     for tx in sent_count:
         sent_topic.append(tx[0])
         sent_count1.append(tx[1])
-    query = engine.execute('''Select date,source,bank,Topic,Headline,clean_title from users where "Raw Article"
-     like ('%' || ? || '%')''',(str(result),) ).fetchall()
+    query = engine.execute('''Select date,country,source,bank,Topic,Sentiment,Headline,clean_title from users where "Raw Article"
+     like ('%' || ? || '%') order by date ''',(str(result),) ).fetchall()
 
     query2 = engine.execute('''Select "clean_text",Sentiment from users where  "Raw Article"
      like ('%' || ? || '%')''',(str(result),) ).fetchall()
@@ -639,7 +650,7 @@ def search_func():
     if len(clean_text_list) == 0:
         string = "No results found."
         return render_template("search_news.html", string=string, topic_list=topic_list, result=result,sent_topic=sent_topic,
-                            source_list=source_list, bank_list=bank_list, end_date=end_date,max_date=max_date)
+                            source_list=source_list, bank_list=bank_list, end_date=end_date,max_date=max_date,country_list=country_list)
     list_words = fetch_sentiment_using_vader(clean_text_list)
     stopwords = stopwords_for_wordcount(clean_text_list)
     count_vectorizer = CountVectorizer(stop_words=stopwords[0])
@@ -657,12 +668,14 @@ def search_func():
         summary_text.append(row[2])
         create_text(row[0], row[1])
         create_summary(row[0], row[2])
-    df1 = pd.DataFrame(query, columns=[ 'Date', 'Publication', 'Bank', 'Category', 'Title', 'Clean title'])
+    df1 = pd.DataFrame(query, columns=[ 'Date','Country', 'Publication', 'Bank', 'Category','Sentiment', 'Title', 'Clean title'])
     df1 = (df1.drop([ 'Clean title'], axis=1))
     df2 = pd.DataFrame(query3, columns=['Clean title', 'Raw Article', 'Summary'])
     df2 = (df2.drop(['Clean title'], axis=1))
     frames = [df1, df2]
+
     df = pd.concat(frames, axis=1)
+
     print(df)
     df.to_excel('static/table/article_directory.xlsx')
     table_list = os.listdir(os.path.join(app.static_folder, "table"))
@@ -672,13 +685,9 @@ def search_func():
     fig_pie=count_sent_pie(Counter(sent_list).keys(),Counter(sent_list).values())
     return render_template("search_news.html", topic_list=topic_list, result=result,
                            summary=summary_list1,fig_pie=fig_pie,sent_topic=sent_topic,
-                           source_list=source_list, bank_list=bank_list,table_excel=table_list,
+                           source_list=source_list, bank_list=bank_list,table_excel=table_list,country_list=country_list,
                            max_date=max_date, query=query, fig_pos=fig_pos, string="None", search=search,
                            fig_tri=fig_tri, fig_neg=fig_neg, img1=images_list, text1=text_list1)
 
-import time
-start = time.process_time()
-# your code here
-print(time.process_time() - start)
 if __name__ == "__main__":
     app.run(debug=True)

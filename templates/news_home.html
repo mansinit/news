@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js"></script>
+
     <script>
 
 function openNav() {
@@ -153,10 +154,22 @@ background-color:red;
 
 .chart {
   float: left;
-  width: 33.33%;
+  width: 33.3%;
   padding: 5px;
 }
 
+.chart1 {
+  float: left;
+  width: 33.3%;
+  padding: 5px;
+}
+
+.chart2 {
+  float: left;
+  align:center;
+  width: 50%;
+  padding: 5px;
+}
 /* Clearfix (clear floats) */
 .row::after {
   content: "";
@@ -180,7 +193,7 @@ background-color:red;
 
 .column {
   float: left;
-  width: 33%;
+  width: 24.6%;
   padding: 5px;
   background-color:#b3b1b3;
   text-align:center;
@@ -192,11 +205,13 @@ background-color:red;
   clear: both;
   display: table;
 }
+
+
     </style>
 </head>
 <body>
-<div class="topnav">
-<button class="openbtn" onclick="openNav()">☰ UAE News Watch</button>
+<div class="topnav" id="myHeader">
+<button class="openbtn" onclick="openNav()">☰ MENAT News Watch</button>
 
 <div class="search-container">
       {%set y =search%}
@@ -209,10 +224,17 @@ background-color:red;
 <div id="mySidebar" class="sidebar">
     <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">×</a>
 <form action="{{url_for('filter_func')}}" method="post" autocomplete="off">
-Category<select name="topic_list">
+Country<select name="country_list">
+    <option value="All">All</option>
+{% for topic in country_list%}
+    <option value="{{topic}}" {%if result==topic%} selected="selected" {%endif%} >{{topic}}</option>
+    {%endfor%}
+</select>
+
+    Category<select name="topic_list">
     <option value="All">All</option>
 {% for topic in topic_list%}
-    <option value="{{topic}}" {%if result==topic%} selected="selected" {%endif%} >{{topic}}</option>
+    <option value="{{topic}}" {%if country_result==topic%} selected="selected" {%endif%} >{{topic}}</option>
     {%endfor%}
 </select>
     Publication<select name="source_list">
@@ -254,22 +276,30 @@ Bank<select name="bank_list">
     </form>
     </div>
 <div class="container">
+
     <div class="column"  style="margin-right:5px;">
-            <h2>{{rows}}</h2>
-    <h3> Articles</h3>
+            <h2>{{country_list|length}}</h2>
+    <h3> Countries</h3>
     </div>
     <div class="column" style="margin-right:5px;">
         <h2>{{source_list|length}}</h2>
         <h3>Publications</h3>
     </div>
-    <div class="column">
+    <div class="column"style="margin-right:5px;">
 
         <h2>{{bank_list|length}}</h2>
         <h3>Banks</h3>
     </div>
 
+    <div class="column"  >
+            <h2>{{rows}}</h2>
+    <h3> Articles</h3>
+    </div>
 
 </div>
+<form action="{{url_for('home')}}" method="post">
+    <input type="submit" value="Refresh" name="refresh" >
+</form>
 <div class="row" id="main">
 
     <div class="chart" id="barchart7">
@@ -290,17 +320,18 @@ Bank<select name="bank_list">
                     Plotly.plot('barchart4',graphs,{});
                 </script>
             </div>
+
 </div>
 <div class="row1">
-    <div class="chart"><a href="static/images/{{img[0]}}"height="550" width="700"><img src="static/images/{{img[0]}}" height="380" width="450"> </a></div>
+    <div class="chart1"><a href="static/images/{{img[0]}}"height="550" width="700"><img src="static/images/{{img[0]}}" height="380" width="450"> </a></div>
 
-     <div class="chart" id="barchart">
+     <div class="chart1" id="barchart">
                 <script>
                     var graphs = {{plt_pos | safe}};
                     Plotly.plot('barchart',graphs,{});
                 </script>
             </div>
-     <div class="chart" id="barchart1">
+     <div class="chart1" id="barchart1">
                 <script>
                     var graphs = {{plt_neg | safe}};
                     Plotly.plot('barchart1',graphs,{});
@@ -309,14 +340,14 @@ Bank<select name="bank_list">
 
 </div>
 <div class="row2">
-<div class="chart" id="piechart">
+<div class="chart2" id="piechart">
                 <script>
                     var graphs = {{fig_sent | safe}};
                     Plotly.plot('piechart',graphs,{});
                 </script>
             </div>
 
-     <div class="chart" id="barchart8">
+     <div class="chart2" id="barchart8">
                 <script>
                     var graphs = {{fig_json | safe}};
                     Plotly.plot('barchart8',graphs,{});
