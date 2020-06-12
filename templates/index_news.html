@@ -345,7 +345,7 @@ Bank<select name="bank_list">
 
     <tr>
         <th width="7%">Date</th>
-        <th width="5%">Country</th>
+        <th width="4%">Country</th>
         <th width="10%">Publication</th>
         <th width="17%">Bank</th>
         <th>Category</th>
@@ -367,9 +367,6 @@ Bank<select name="bank_list">
         {% if row1.replace('.txt','')==row[list_columns[x]] %}
         <a href="static/text/{{row1}}" download >Download Article</a>
         {%endif%}
-        {%if row[list_columns[x]]==""%}
-        <a href="static/text/file.txt" download >Download Article</a>
-        {%endif%}
         {%endfor%}
     </td>
 
@@ -378,9 +375,6 @@ Bank<select name="bank_list">
 
         {% if row2.replace('.txt','')==row[list_columns[x]] %}
         <a href="static/summaries/{{row2}}" download >Download Summary</a>
-        {%endif%}
-        {%if row[list_columns[x]]==""%}
-        <a href="static/text/file.txt" download >Download Article</a>
         {%endif%}
         {%endfor%}
     </td>

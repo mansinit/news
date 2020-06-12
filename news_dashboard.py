@@ -1,88 +1,62 @@
-import matplotlib.pyplot as plt
-from nltk.sentiment.vader import SentimentIntensityAnalyzer
+# ******************PACKAGES*********************************
 import os
-from flask import Flask, render_template, request,redirect,url_for
+from flask import Flask, render_template, request, redirect, url_for
+import matplotlib
+matplotlib.use('agg')
 app = Flask(__name__)
-import difflib
-tl=[]
+tl = []
 from sqlalchemy import create_engine
-engine = create_engine('sqlite://', echo=False)
-import requests
-from bs4 import BeautifulSoup
 
+engine = create_engine('sqlite://', echo=False)
 headers = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'}
 
 import pandas as pd
 from collections import Counter
-images=[]
-from wordcloud import WordCloud, STOPWORDS
-import numpy as np
-import matplotlib
-matplotlib.use('agg')
-import seaborn as sns
+
+images = []
 import random
-random_number=random.randint(0,99999)
 
-from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
-
-
+random_number = random.randint(0, 99999)
 news_df = pd.read_csv('menat_news_articles.csv')
 PEOPLE_FOLDER = os.path.join('static')
 app.config['UPLOAD_FOLDER'] = PEOPLE_FOLDER
-
-
-import plotly.graph_objs as go
-from plotly.subplots import make_subplots
-import plotly.offline as plt
-import json
-import plotly
-
 import nltk
+
 nltk.download('punkt')
 from newspaper import Article
 import datetime
-import pandas as pd
-import numpy as np
 from nltk.tokenize.toktok import ToktokTokenizer
 from contractions import CONTRACTION_MAP
 from selenium import webdriver
 import unicodedata
-name_list=[]
+
+news_list = []
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
 import plotly.graph_objs as go
-import plotly.offline as plt
 import json
 import plotly
-
-from nltk.sentiment.vader import SentimentIntensityAnalyzer
-
-from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
 import os
 import random
 import pandas as pd
-from flask import Flask, render_template , request
+from flask import Flask, render_template, request
 
-import matplotlib.pyplot as plt
-import matplotlib
 PEOPLE_FOLDER = os.path.join('static')
 
 from wordcloud import WordCloud, STOPWORDS
-import matplotlib.pyplot as plt
-
-from sklearn.feature_extraction.text import CountVectorizer,TfidfVectorizer
-import numpy as np
-
-import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 import seaborn as sns
+
 sns.set_style('whitegrid')
 nltk.download('averaged_perceptron_tagger')
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
-from textblob import TextBlob
 import re
 
+
+# ***********************CLEANING TEXT*************************
+
+# *****EXPANDING CONTRACTIONS wouldn't-would not ************************
 def expand_contractions(text, contraction_mapping=CONTRACTION_MAP):
     contractions_pattern = re.compile('({})'.format('|'.join(contraction_mapping.keys())),
                                       flags=re.IGNORECASE | re.DOTALL)
@@ -100,45 +74,35 @@ def expand_contractions(text, contraction_mapping=CONTRACTION_MAP):
     expanded_text = re.sub("'", "", expanded_text)
     return expanded_text
 
+
+# ***********REMOVAL OF sPECIAL CHARACTER****************************************
 def remove_special_characters(text, remove_digits=False):
     pattern = r'[^a-zA-z0-9\s]' if not remove_digits else r'[^a-zA-z\s]'
     text = re.sub(pattern, '', text)
     return text
 
 
-def stopwords_for_wordcloud(corpus):
-    list_key = []
-    for x in corpus:
-        list_key.append(x)
-    comment_words = ''
-    for token in list_key:
-        if str(token) != "None":
-            comment_words += token
-
-    stopword_list = nltk.corpus.stopwords.words('english')
-    #add multiple list of stop
-    list=["march","week","number",'dhbn',"UAE","amp","central","islamic","standard","chartered","mr","please",'charter',
-    "dh","stop","client","bank","abu","month","company","country","business","commercial","singapore","oil","asia",
-    "price","dhabi",'use',"cent","uae","dubai","banks","per","al","time","year","uaes","new",'bn',"many","part","day"]
-    stopword_list+=(list)
-    return stopword_list,comment_words
-
+# ********REMOVAL OF ACCENTED CHARACTERS (İşbank)******************************
 def remove_accented_chars(text):
     text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8', 'ignore')
     return text
 
+
+# *********STEMMING USING PORTER STEMMER going-go************************
 def simple_stemmer(text):
     ps = nltk.porter.PorterStemmer()
     text = ' '.join([ps.stem(word) for word in text.split()])
     return text
 
+
+# ********REMOVAL OF STOPWORDS -will, have****************************
 def remove_stopwords(text, is_lower_case=False):
     tokenizer = ToktokTokenizer()
     stopword_list = nltk.corpus.stopwords.words('english')
     stopword_list.remove('no')
     stopword_list.remove('not')
-    #list_stop=["nfc","po","nmc","rakbank"]
-    #stopword_list=stopword_list+list_stop
+    # list_stop=["nfc","po","nmc","rakbank"]
+    # stopword_list=stopword_list+list_stop
     tokens = tokenizer.tokenize(text)
     tokens = [token.strip() for token in tokens]
     if is_lower_case:
@@ -148,297 +112,354 @@ def remove_stopwords(text, is_lower_case=False):
     filtered_text = ' '.join(filtered_tokens)
     return filtered_text
 
-def remove_proper_nouns(doc):
+
+# ************POS TAGGING- only nouns and ajectives***********************
+def pos_tagging(doc):
     tagged_sentence = nltk.tag.pos_tag(doc.split())
     edited_sentence = [word for word, tag in tagged_sentence if tag == 'NN' or tag == 'JJ']
-    text=' '.join(edited_sentence)
+    text = ' '.join(edited_sentence)
     return text
 
-def sentiment_list(corpus):
-    list=[]
-    sd = {}
-    sia=SentimentIntensityAnalyzer()
-    for doc in corpus:
-        pol_score = sia.polarity_scores(doc)
-        pol_score['headline'] = doc
-        if pol_score['compound']>0:
-            list.append("Positive")
-        elif pol_score['compound']==0:
-            list.append("Neutral")
-        else:
-            list.append("Negative")
-    return list
 
+# ************CALLING ABOVE FUNCTIONS AND CLEANING THE TEXT**************
 def normalize_corpus(corpus):
-    normalize_corpus=[]
+    normalize_corpus = []
     for doc in corpus:
         doc = re.sub(r"\b[A-Z\.]{2,}s?\b", "", doc)
-        doc = remove_stopwords(doc,is_lower_case=True)
+        doc = remove_stopwords(doc, is_lower_case=True)
         doc = remove_accented_chars(doc)
 
         doc = expand_contractions(doc)
 
         doc = doc.lower()
-            # remove extra newlines
+        # remove extra newlines
         doc = re.sub(r'[\r|\n|\r\n]+', ' ', doc)
         special_char_pattern = re.compile(r'([{.(-)!}])')
         doc = special_char_pattern.sub(" \\1 ", doc)
-        doc = remove_special_characters(doc,remove_digits=True)
+        doc = remove_special_characters(doc, remove_digits=True)
+        doc = simple_stemmer(doc)
         # remove extra whitespace
         doc = re.sub(' +', ' ', doc)
         from pywsd.utils import lemmatize_sentence
-        doc=lemmatize_sentence(doc)
-        doc=' '.join(doc)
-        doc = remove_proper_nouns(doc)
+        doc = lemmatize_sentence(doc)
+        doc = ' '.join(doc)
+        doc = pos_tagging(doc)
         normalize_corpus.append(doc)
     return normalize_corpus
 
 
+# **************END OF CLEANING THE ARTICLES AND CREATED A COLUMN CLEAN TEXT**************
 
-def national(link,z,x,source,country):
-    headline_list=[]
+# **************PARSING ARTICLES FROM EVERY ARTICLE WEBSITE********************************
+def scrape_from_site(link, z, x, source, country):
+    # **********************CREATE AN EMPTY DICTIONARY******************
     df = {}
-    if source=="The National":
+    # ***********LINKS OF THE ARTICLE NEEDS TO APPEND THEIR PUBLICATION LINK BEFORE THEM*************
+    if source == "The National":
         url = 'https://thenational.ae/' + link
-    elif source=="Khaleej Times":
-        url='https://www.khaleejtimes.com/'+link
-    elif source=="Egypt Today":
-        url='https://www.egypttoday.com/'+link
+    elif source == "Khaleej Times":
+        url = 'https://www.khaleejtimes.com/' + link
+    elif source == "Egypt Today":
+        url = 'https://www.egypttoday.com/' + link
     else:
-        url=link
+        url = link
+    # ***************DOWNLOAD, PARSE AND APPLY NLP ON THE ARTICLE*****************8
     article = Article(url)
     article.download()
     article.parse()
     article.nlp()
-    if article.title not in headline_list:
-        df['country']=country
-        df['source']=source
-        df['bank'] = x
-        df['date']=z
-        df['Headline']=article.title
-        headline_list.append(df['Headline'])
-        df['Raw Article']=article.text
-        df['Summary']=article.summary
-        string=" ".join(article.keywords)
-        df['Keywords']=string
-        name_list.append(df)
+    # ************SPECIFY THE COUNTRY, SOURCE, BANK AND DATE FROM THE PARAMTERS*********
+    df['country'] = country
+    df['source'] = source
+    df['bank'] = x
+    df['date'] = z
+    # **********************USE ARTICLE PACKAGE FOR TITLE, ARTICLE, SUMMARY AND KEYWORDS**************
+    df['Headline'] = article.title
+    df['Raw Article'] = article.text
+    df['Summary'] = article.summary
+    string = " ".join(article.keywords)
+    df['Keywords'] = string
+    # ******************NEWS_LIST IS A GLOBAL LIST WHICH WILL CONTAIN ALL THE ROWS*******************
+    news_list.append(df)
 
 
 
+# **************SENTIMENT ANALYSIS USING VADER**********************8
+def sentiment_analysis_on_headline(corpus):
+    list = []
+    sia = SentimentIntensityAnalyzer()
+    for doc in corpus:
+        pol_score = sia.polarity_scores(doc)
+        pol_score['headline'] = doc
+        if pol_score['compound'] > 0:
+            list.append("Positive")
+        elif pol_score['compound'] == 0:
+            list.append("Neutral")
+        else:
+            list.append("Negative")
+    return list
 
-def find_prob(headline,processed_text,list_cat,str1,str2):
-    list_doc=processed_text.split()
-    list_head=headline.split()
-    sum=0
-    if str1 in processed_text or str2 in processed_text :
+
+# ************HELPER FUNCTION FOR PROBABILITY OF THE LIST OF KEYWORDS FOR TOPIC ASSIGNMENT******
+def find_prob(headline, processed_text, list_cat, str1, str2):
+    list_doc = processed_text.split()
+    list_head = headline.split()
+    sum = 0
+    if str1 in processed_text or str2 in processed_text:
         for word in list_cat:
-            count_word=processed_text.count(word)
-            count_word_head=headline.count(word)
-            prob=count_word/len(list_doc)
-            prob2=count_word_head/len(list_head)
-            sum+=prob+prob2
+            count_word = processed_text.count(word)
+            count_word_head = headline.count(word)
+            prob = count_word / len(list_doc)
+            prob2 = count_word_head / len(list_head)
+            sum += prob + prob2
     return sum
 
-def assign_topics(corpus,headline):
-    topic_list=[]
-    for doc in range(0,len(corpus)):
-        list_forb=["relief","payment holiday","three month payment holiday","threemonth payment holiday","repayment holiday","deferment","mortgage payment",
-                   "payment","holiday","loan","defer","fee waiver","waiver","repayment","threemonth",'support','help',"offer","relieve","three months"
-                   ,"loan deferral"]
-        list_contact=["digital","contactless","payment","cashless",'digital services','digital platform',"money","transfer","transaction","app","remit"
-                      'mastercard',"contactless payment","contactless cashless payment","cashless payment"]
-        list_credit_inc=["credit line","credit limit","credit card limit","credit card","credit limit increase","credit line increase",
-                     "increase","card limit","credit line decrease","credit limit decrease"]
-        list_cust=["customer"]
-        list_sup=["support","stimulus package","relief package","package","economic package"]
-        freq_forb=find_prob(headline[doc],corpus[doc],list_forb,"payment holiday","defer loan")
-        freq_cont=find_prob(headline[doc],corpus[doc],list_contact,"contactless ","digital")
-        freq_cred_inc=find_prob(headline[doc],corpus[doc],list_credit_inc,"credit card limit","credit limit increase")
-        freq_cust=find_prob(headline[doc],corpus[doc],list_cust,"customer","bank")
-        freq_sup=find_prob(headline[doc],corpus[doc],list_sup,"support","bank")
-        print(headline[doc])
-        list_freq=[freq_cust,freq_forb,freq_cred_inc,freq_sup,freq_cont]
-        if (max(list_freq)==freq_forb and freq_forb>=0.05)  :
-            topic="Forbearance"
+
+# ******************TOPIC ASSIGNMENT****************************
+def assign_topics(corpus, headline):
+    topic_list = []
+    for doc in range(0, len(corpus)):
+
+        # ***********CREATING LIST OF KEYWORDS FOR PARTICULAR CATEGORY*************************************
+        list_forb = ["relief", "payment holiday", "three month payment holiday", "threemonth payment holiday",
+                     "repayment holiday", "deferment", "mortgage payment",
+                     "payment", "holiday", "loan", "defer", "fee waiver", "waiver", "repayment", "threemonth",
+                     'support', 'help', "offer", "relieve", "three months"
+            , "loan deferral"]
+        list_contact = ["digital", "contactless", "payment", "cashless", 'digital services', 'digital platform',
+                        "money", "transfer", "transaction", "app", "remit"
+                                                                   'mastercard', "contactless payment",
+                        "contactless cashless payment", "cashless payment"]
+        list_credit_inc = ["credit line", "credit limit", "credit card limit", "credit card", "credit limit increase",
+                           "credit line increase",
+                           "increase", "card limit", "credit line decrease", "credit limit decrease"]
+        list_cust = ["customer"]
+        list_sup = ["support", "stimulus package", "relief package", "package", "economic package"]
+
+        # ************FIND PROBABILITY OF CORRESPONDING LIST WITH SOME COMPULSORY KEYWORDS******************
+        freq_forb = find_prob(headline[doc], corpus[doc], list_forb, "payment holiday", "defer loan")
+        freq_cont = find_prob(headline[doc], corpus[doc], list_contact, "contactless ", "digital")
+        freq_cred_inc = find_prob(headline[doc], corpus[doc], list_credit_inc, "credit card limit",
+                                  "credit limit increase")
+        freq_cust = find_prob(headline[doc], corpus[doc], list_cust, "customer", "bank")
+        freq_sup = find_prob(headline[doc], corpus[doc], list_sup, "support", "bank")
+
+        # *************CREATE A LIST OF ALL THE PROBABILTIES FETCHED****************************
+        list_freq = [freq_cust, freq_forb, freq_cred_inc, freq_sup, freq_cont]
+
+        # ***************COMPARE WITH THE THRESHOLD AND ASSIGN THE TOPIC***********************
+        if (max(list_freq) == freq_forb and freq_forb >= 0.05):
+            topic = "Forbearance"
             print(freq_forb)
-        elif max(list_freq)==freq_cont and freq_cont>=0.05  :
-            topic="Contactless/Digital"
-        elif freq_cred_inc>=0.05 and max(list_freq)==freq_cred_inc :
-            topic="Credit Limit"
-        elif freq_cust>=0.05 and max(list_freq)==freq_cust:
-            topic="Customer"
-        elif freq_sup>=0.05 and max(list_freq)==freq_sup:
-            topic="Support"
+        elif max(list_freq) == freq_cont and freq_cont >= 0.05:
+            topic = "Contactless/Digital"
+        elif freq_cred_inc >= 0.05 and max(list_freq) == freq_cred_inc:
+            topic = "Credit Limit"
+        elif freq_cust >= 0.05 and max(list_freq) == freq_cust:
+            topic = "Customer"
+        elif freq_sup >= 0.05 and max(list_freq) == freq_sup:
+            topic = "Support"
         else:
-
-            list_finan = ["financial result", "financial report", "business report", "financial statement"]
+            list_finan = ["financial result", "financial report", "business report", "financial statement", "quarter",
+                          "profit"]
             if any(word in corpus[doc] for word in list_finan):
-                topic="Financial Result"
-            elif "business" in corpus[doc] :
-                topic="Business"
+                topic = "Financial Result"
+            elif "business" in corpus[doc]:
+                topic = "Business"
             else:
-                topic="Others"
-
+                topic = "Others"
+        # ***************************CREATE A LIST OF ALL THE TOPICS**************************************
         topic_list.append(topic)
     return topic_list
 
-def national_source_url(list_bank,headers):
+
+# ***************************REFRESH BUTTON IS CLICKED***********************************************
+
+# *************NATIONAL PUBLICATION FOR ALL THE BANKS OF UAE***********************************
+def national_source_url(list_bank, headers):
     import csv
     for x in list_bank:
-        f=0
-        print("NATIONAL SOURCE URL")
-        print(x)
-        for i in range(1,25):
-            print(i)
-            url="https://www.thenational.ae/search?q={}&fq=&page={}".format(x,i)
-            xb=x
+        f = 0
+        for i in range(1, 10):
+            url = "https://www.thenational.ae/search?q={}&fq=&page={}".format(x, i)
+            xb = x
+            # ***REPLACE THE + SIGN BETWEEN THE NAME OF THE BANKS WITH A SPACE****
             if '+' in x:
-                xb=x.replace('+',' ')
+                xb = x.replace('+', ' ')
                 if 'Citi' in xb:
-                    xb=xb.replace(" ","")
+                    xb = xb.replace(" ", "")
+            # *****PARSE HTML PAGE OF THE PARTICULAR BANK ON THE SPECIFIC PAGE****
             response = requests.get(url, headers=headers)
             content = response.content
             soup = BeautifulSoup(content, "html.parser")
             list_tr = soup.find_all("div", attrs={"class": "small-article-desc $sectionColour"})
             for tr in list_tr:
                 x1 = (tr.find('a'))
-                title=x1.h2.text
+                # **********TITLE OF THE ARTICLE*********************
+                title = x1.h2.text
+                print(xb)
                 print(title)
-
+                # *********LINK OF THE ARTICLE*************
                 link = (x1.get('href'))
+                # *********FETCH THE DATE ON WHICH ARTICLE WAS PUBLISHED***********
                 date_p = (x1.em.text)
                 print(date_p)
+                # *********COVERTING DATE INTO pYTHON FORMAT****************
                 date_f = datetime.datetime.strptime(date_p, '%B %d, %Y').strftime('%Y/%m/%d')
                 z = datetime.datetime.strptime(date_f, '%Y/%m/%d')
-                dates=[]
+                dates = []
+                # *********READ FLAT FILE AND CREATE A DATAFRAME************
                 df = pd.read_csv('menat_news_articles.csv')
-                for ind in df.index:
-                    if df['source'][ind] == "The National" and df['bank'][ind] == xb:
-                        dates.append(df['date'][ind])
-                title_list=[]
-                if len(dates) > 0:
-                    date_p=max((dates))
-                    title_list=(df[df['date'] == date_p]['Headline']).to_list()
-                    date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
-                    z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
-                    date_author = z1
-                else:
-                    date_author = datetime.datetime(2020, 3, 15)
-                print(title_list)
-                if z >= date_author and z <= datetime.datetime.now():
-                    if title not in title_list:
+                # *********CHECK WHETHER THE FILE IS EMPTY OR NOT***********
 
-                        national(link,z,xb,'The National',"UAE")
+                # ********IF EMPTY DATE WILL BE 15TH MARCH**************
+                if df.empty:
+                    date_author = datetime.datetime(2020, 3, 15)
+                # **********ELSE FETCH THE LATEST DATE AND LATEST ARTICLE AND COMPARE IT WITH THE NEW ONE********
                 else:
-                    f=1
+                    # *******APPEND DATES IN A LIST OF THE SPECIFIC BANK AND PUBLICATION**************
+                    for ind in df.index:
+                        if df['source'][ind] == "The National" and df['bank'][ind] == xb:
+                            dates.append(df['date'][ind])
+                    title_list = set()
+                    if len(dates) > 0:
+                        # *********FIND THE MAXIMUM DATE SO THAT NO ARTICLE ON THAT PARTICULAR DATE IS LEFT****
+                        date_p = max((dates))
+
+                        # *******CONVERT THAT MAX_DATE TO THE PYTHON FORMAT*****************************
+                        date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
+                        z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
+                        date_author = z1
+                    else:
+                        date_author = datetime.datetime(2020, 3, 15)
+                # ***************IF THE DATE IS WITHIN THIS RANGE, PROCESS THE ARTICLE*******************
+                if z >date_author and z <= datetime.datetime.now():
+                    scrape_from_site(link, z, xb, 'The National', "UAE")
+                # ***********BREAK FROM THE LOOP IF THE CONDITION DOES NOT SATIFY*************
+                else:
+                    f = 1
                     break
-            if f==1:
+            # **********************DON'T CHECK FOR THE FURTHER PAGES AS WELL*************
+            if f == 1:
                 break
 
+
+# ********************SCRAPE ARTICLES FROM ARABIAN BUSINESS PUBLICATIN**********************
 def arabian(driver):
+    # *****WAIT FOR SOMETIME FOR THE SITE TO GET PROCESSED************************
     driver.implicitly_wait(100)
+    # ***********SCROLL TO THE END OF THE WEBPAGE**************************
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
     driver.implicitly_wait(200)
-    result=driver.find_element_by_xpath('''//*[@id="subsection-results"]/div[100]''')
+    # ****************TO LOAD THE ARTICLES WE NEED TO REACH TO SOME DIV********************
+    result = driver.find_elements_by_xpath('''//*[@id="subsection-results"]/div[300]''')
+    driver.implicitly_wait(200)
+    # *******************IF THAT DIV EXIST IT WILL CONTINUE OTHERWISE IT WILL SKIP THIS PUBLICATION************
+    if result:
+        list = []
+        list_bank = ['Mashreq', 'Rakbank', 'HSBC', 'First Abu Dhabi Bank', 'Abu Dhabi Commercial Bank', 'Emirates NBD',
+                     'Abu Dhabi Islamic Bank', 'Standard Chartered Bank', 'Citibank']
+        # *****************COMPARE THE HEADING OF THE POST WITH THE BANK NAMES GIVEN IN THE LIST************
+        for x in list_bank:
+            list.append(x.upper())
+        print(list_bank)
+        # *****************************REACH TO THE MAXIMUM POST FOR BETTER RESULTS BUT IT WILL BREAK ACCORDING TO THE DATE RANGE*****
+        for i in range(1, 250):
+            # ******************GET THROUGHT EVERY POST************************
+            x_path = '''//*[@id="subsection-results"]/div[{0}]'''.format(i)
+            results = driver.find_element_by_xpath(x_path)
+            bankname1 = results.find_element_by_tag_name('span')
+            if bankname1:
+                name = bankname1.find_element_by_tag_name('a')
+            driver.implicitly_wait(100)
+            # ***************GET THE HEADING OF THE POST**************
+            bankname = name.text
+            print(bankname)
+            # ******IF THE HEADING CONTAINS THE BANK NAME FROM ABOVE LIST THEN PROCEED*************
+            if (bankname) in list:
+                results = (results.find_element_by_tag_name('h3'))
+                res = results.find_element_by_tag_name('a')
+                url = res.get_attribute('href')
+                title = res.text
+                response = requests.get(url, headers=headers)
+                content = response.content
+                soup = BeautifulSoup(content, "html.parser")
+                list_tr = soup.find_all("div", attrs={"class": "date-time date-published change-font-size"})
+                for tr in list_tr:
+                    date = (tr.span.text)
+                date_f = datetime.datetime.strptime(date, '%a %d %b %Y %I:%M %p').strftime('%Y/%m/%d')
+                if bankname == "HSBC":
+                    bankname = "HSBC"
+                elif bankname == "EMIRATES NBD":
+                    bankname = "Emirates NBD"
+                else:
+                    bankname = bankname.title()
+                z = datetime.datetime.strptime(date_f, '%Y/%m/%d')
+                dates = []
+                df = pd.read_csv('menat_news_articles.csv')
+                if df.empty:
+                    date_author = datetime.datetime(2020, 3, 15)
+                else:
+                    for ind in df.index:
+                        if df['source'][ind] == "Arabian Business" and df['bank'][ind] == bankname:
+                            dates.append(df['date'][ind])
+                    title_list = set()
+                    if len(dates) > 0:
+                        date_p = (max(dates))
+                        date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
+                        z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
+                        date_author = z1
+                    else:
+                        date_author = datetime.datetime(2020, 3, 15)
 
-    list = []
-    list_bank = ['Mashreq', 'Rakbank', 'HSBC', 'First Abu Dhabi Bank', 'Abu Dhabi Commercial Bank', 'Emirates NBD',
+                if z > date_author and z <= datetime.datetime.now():
+                    scrape_from_site(url, z, bankname, 'Arabian Business', "UAE")
+                else:
+                    break
 
-                 'Abu Dhabi Islamic Bank', 'Standard Chartered Bank', 'Citibank']
-    for x in list_bank:
-        list.append(x.upper())
-    print(list_bank)
-    for i in range(1, 100):
-        x_path = '''//*[@id="subsection-results"]/div[{0}]'''.format(i)
-        results = driver.find_element_by_xpath(x_path)
-        bankname1 = results.find_element_by_tag_name('span')
-        name = bankname1.find_element_by_tag_name('a')
-        driver.implicitly_wait(100)
-        bankname=name.text
-        if (bankname) in list:
-            results = (results.find_element_by_tag_name('h3'))
-            res = results.find_element_by_tag_name('a')
-            url=res.get_attribute('href')
-            title=res.text
-            response = requests.get(url, headers=headers)
-            content = response.content
-            soup = BeautifulSoup(content, "html.parser")
-
-            list_tr = soup.find_all("div", attrs={"class": "date-time date-published change-font-size"})
-            for tr in list_tr:
-                date=(tr.span.text)
-
-            date_f = datetime.datetime.strptime(date, '%a %d %b %Y %I:%M %p').strftime('%Y/%m/%d')
-
-            if bankname=="HSBC":
-                bankname="HSBC"
-            elif bankname=="EMIRATES NBD":
-                bankname="Emirates NBD"
-            else:
-                bankname=bankname.title()
-            z = datetime.datetime.strptime(date_f, '%Y/%m/%d')
-            dates = []
-            df = pd.read_csv('menat_news_articles.csv')
-            for ind in df.index:
-                if df['source'][ind] == "Arabian Business" and df['bank'][ind] == bankname:
-                    dates.append(df['date'][ind])
-            title_list=[]
-            if len(dates) > 0:
-                date_p = (max(dates))
-                title_list=(df[df['date'] == date_p]['Headline']).to_list()
-                date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
-                z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
-                date_author = z1
-            else:
-                date_author = datetime.datetime(2020, 3, 15)
-
-            if z >= date_author and z <= datetime.datetime.now():
-                if title not in title_list:
-                    print(bankname)
-                    national(url, z, bankname, 'Arabian Business',"UAE")
-            else:
-                break
 
 def egypt(headers):
-    url="https://www.egypttoday.com/Article/Search?title=nbe"
+    url = "https://www.egypttoday.com/Article/Search?title=nbe"
     response = requests.get(url, headers=headers)
     content = response.content
     soup = BeautifulSoup(content, "html.parser")
     list_tr = soup.find_all("div", attrs={"class": "top-reviews-item col-xs-12 search-item article"})
     for tr in list_tr:
-        x = tr.a
-        link=(x.get('href'))
-        title=x.text.strip()
+        x = tr.find_all("a")[1]
+        link = (x.get('href'))
+        title = x.h3.text.strip()
         date_p = tr.span.text.strip()
         date_f = datetime.datetime.strptime(date_p, '%a, %b. %d, %Y').strftime('%Y/%m/%d')
         z = datetime.datetime.strptime(date_f, '%Y/%m/%d')
         dates = []
+        print(title)
+        print(date_p)
         df = pd.read_csv('menat_news_articles.csv')
-        for ind in df.index:
-            if df['source'][ind] == "Egypt Today" and df['bank'][ind] == "National Bank of Egypt":
-                dates.append(df['date'][ind])
-        title_list=[]
-        if len(dates) > 0:
-            date_p = (max(dates))
-            title_list=(df[df['date'] == date_p]['Headline']).to_list()
-            date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
-            z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
-            date_author = z1
-        else:
+        if df.empty:
             date_author = datetime.datetime(2020, 3, 15)
+        else:
+            for ind in df.index:
+                if df['source'][ind] == "Egypt Today" and df['bank'][ind] == "National Bank of Egypt":
+                    dates.append(df['date'][ind])
+            title_list = set()
+            if len(dates) > 0:
+                date_p = (max(dates))
+                date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
+                z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
+                date_author = z1
+            else:
+                date_author = datetime.datetime(2020, 3, 15)
+        if z > date_author and z <= datetime.datetime.now():
+            scrape_from_site(link, z, "National Bank of Egypt", 'Egypt Today', "Egypt")
 
-        if z >= date_author and z <= datetime.datetime.now():
-            if title not in title_list:
-
-                national(link, z, "National Bank of Egypt", 'Egypt Today',"Egypt")
         else:
             break
 
 
 def turkey(headers):
-    f=0
-    for i in range(1,10):
-        url="https://www.dailysabah.com/search?query=ziraat%20bank&pgno={}".format(i)
+    f = 0
+    for i in range(1, 10):
+        url = "https://www.dailysabah.com/search?query=ziraat%20bank&pgno={}".format(i)
         response = requests.get(url, headers=headers)
         content = response.content
         soup = BeautifulSoup(content, "html.parser")
@@ -446,111 +467,114 @@ def turkey(headers):
 
         for tr in list_tr:
             x = tr.find("a")
-            title=x.text.strip()
-            link=(x.get('href'))
+            title = x.text.strip()
+            link = (x.get('href'))
             date_p = tr.find("div", attrs={"class": "date_text"}).text.strip()
             date_f = datetime.datetime.strptime(date_p, '%b %d, %Y').strftime('%Y/%m/%d')
             z = datetime.datetime.strptime(date_f, '%Y/%m/%d')
             dates = []
             df = pd.read_csv('menat_news_articles.csv')
-            for ind in df.index:
-                if df['source'][ind] == "Daily Sabah" and df['bank'][ind] == "Ziraat Bank":
-                    dates.append(df['date'][ind])
-            title_list=[]
-            if len(dates) > 0:
-                date_p = (max(dates))
-                title_list=(df[df['date'] == date_p]['Headline']).to_list()
-                date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
-                z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
-                date_author = z1
-            else:
+            if df.empty:
                 date_author = datetime.datetime(2020, 3, 15)
-
-            if z >= date_author and z <= datetime.datetime.now():
-                if title not in title_list:
-
-                    national(link, z, "Ziraat Bank", 'Daily Sabah',"Turkey")
             else:
-                f=1
+                for ind in df.index:
+                    if df['source'][ind] == "Daily Sabah" and df['bank'][ind] == "Ziraat Bank":
+                        dates.append(df['date'][ind])
+                title_list = set()
+                if len(dates) > 0:
+                    date_p = (max(dates))
+                    date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
+                    z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
+                    date_author = z1
+                else:
+                    date_author = datetime.datetime(2020, 3, 15)
+            if z > date_author and z <= datetime.datetime.now():
+                scrape_from_site(link, z, "Ziraat Bank", 'Daily Sabah', "Turkey")
+            else:
+                f = 1
                 break
-        if f==1:
+        if f == 1:
             break
 
 
-def khaleej_source_url(list_bank,headers):
+def khaleej_source_url(list_bank, headers):
     import csv
     for bank in list_bank:
-        f=0
+        f = 0
         print("KHALEEJ SOURCE URL")
         print(bank)
-        for i in range(1,25):
+
+        for i in range(1, 10):
             print(i)
-            url="https://www.khaleejtimes.com/search?text={}&pagenumber={}".format(bank,i)
-            bank1=bank
+            url = "https://www.khaleejtimes.com/search?text={}&pagenumber={}".format(bank, i)
+            bank1 = bank
             if '+' in bank:
-                bank1=bank.replace('+',' ')
+                bank1 = bank.replace('+', ' ')
                 if 'Citi' in bank1:
-                    bank1=bank1.replace(" ","")
+                    bank1 = bank1.replace(" ", "")
             response = requests.get(url, headers=headers)
             content = response.content
             soup = BeautifulSoup(content, "html.parser")
 
-            list_tr = soup.find_all("div", attrs={"class":"search_listing"})
-
+            list_tr = soup.find_all("div", attrs={"class": "search_listing"})
+            i = 0
             for tr in list_tr:
-                x=tr.find_all("li")
+                x = tr.find_all("li")
                 for y in x:
                     x1 = (y.find('a'))
-                    title=x1.text
+                    title = x1.text
                     link = (x1.get('href'))
                     date_p = y.find("div", attrs={"class": "author_date"}).text
                     date_f = datetime.datetime.strptime(date_p, '%d %B, %Y').strftime('%Y/%m/%d')
                     z = datetime.datetime.strptime(date_f, '%Y/%m/%d')
                     dates = set()
                     df = pd.read_csv('menat_news_articles.csv')
-                    for ind in df.index:
-                        if df['source'][ind] == "Khaleej Times" and df['bank'][ind] == bank1:
-                            dates.add(df['date'][ind])
-                    title_list=[]
-                    if len(dates) > 0:
-                        date_p = (max(dates))
-                        title_list = (df[df['date'] == date_p]['Headline']).to_list()
-                        date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
-                        z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
-                        date_author = z1
+                    if df.empty:
+                        date_author = datetime.datetime(2020, 3, 15)
                     else:
-                        date_author=datetime.datetime(2020, 3, 15)
-                    print(title_list)
-                    if z >= date_author and z <= datetime.datetime.now():
-                        if title not in title_list:
-                            print(bank1)
-                            national(link, z, bank1, 'Khaleej Times',"UAE")
+                        for ind in df.index:
+                            if df['source'][ind] == "Khaleej Times" and df['bank'][ind] == bank1:
+                                dates.add(df['date'][ind])
+                        title_list = set()
+                        if len(dates) > 0:
+                            date_p = (max(dates))
+                            date_f1 = datetime.datetime.strptime(date_p, '%Y-%m-%d').strftime('%Y/%m/%d')
+                            z1 = datetime.datetime.strptime(date_f1, '%Y/%m/%d')
+                            date_author = z1
+                        else:
+                            date_author = datetime.datetime(2020, 3, 15)
+                    if z > date_author and z <= datetime.datetime.now():
+                        scrape_from_site(link, z, bank1, 'Khaleej Times', "UAE")
                     else:
-                        f=1
+                        f = 1
                         break
-            if f==1:
+            if f == 1:
                 break
 
-#Graphs for bigrams,positive,negative and sentiment pie chart
-def create_graphs(x,y,string):
-    if string=="bigram" or string=="unigram" or string=="trigram":
+
+# Graphs for bigrams,positive,negative and sentiment pie chart
+def create_graphs(x, y, string):
+    if string == "bigram" or string == "unigram" or string == "trigram":
         trace1 = go.Bar(x=x, y=y, marker_color='grey')
         layout = go.Layout(title="Top 20 " + string + " words", xaxis=dict(title="Words", ),
-                           yaxis=dict(title="Count", ), autosize=False, width=470, height=380,paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='rgba(0,0,0,0)')
+                           yaxis=dict(title="Count", ), autosize=False, width=470, height=380,
+                           paper_bgcolor='rgba(0,0,0,0)',
+                           plot_bgcolor='rgba(0,0,0,0)')
 
-    elif string=="positive":
+    elif string == "positive":
 
         trace1 = go.Bar(x=x, y=y, marker_color='grey')
-        layout = go.Layout(title="Top most "+string+" words", xaxis=dict(title="Words", ),
-                       yaxis=dict(title="Count", ), autosize=False, width=430, height=380,paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='rgba(0,0,0,0)')
+        layout = go.Layout(title="Top most " + string + " words", xaxis=dict(title="Words", ),
+                           yaxis=dict(title="Count", ), autosize=False, width=430, height=380,
+                           paper_bgcolor='rgba(0,0,0,0)',
+                           plot_bgcolor='rgba(0,0,0,0)')
     else:
 
         trace1 = go.Bar(x=x, y=y, marker_color='red')
-        layout = go.Layout(title="Top most "+string+" words", xaxis=dict(title="Words", ),
-                       yaxis=dict(title="Count", ), autosize=False, width=430, height=380,paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='rgba(0,0,0,0)')
+        layout = go.Layout(title="Top most " + string + " words", xaxis=dict(title="Words", ),
+                           yaxis=dict(title="Count", ), autosize=False, width=430, height=380,
+                           paper_bgcolor='rgba(0,0,0,0)',
+                           plot_bgcolor='rgba(0,0,0,0)')
     data = [trace1]
     fig = go.Figure(data=data, layout=layout)
     fig.update_xaxes(tickangle=90)
@@ -560,13 +584,12 @@ def create_graphs(x,y,string):
 
 
 def fetch_sentiment_using_vader(corpus):
-
     pos_word_list = set()
     word_total = []
     neg_word_list = set()
 
     for text in corpus:
-        list_words=text.split()
+        list_words = text.split()
         sid = SentimentIntensityAnalyzer()
         for word in list_words:
             if (sid.polarity_scores(word)['compound']) >= 0.5:
@@ -574,10 +597,10 @@ def fetch_sentiment_using_vader(corpus):
             elif (sid.polarity_scores(word)['compound']) <= -0.5:
                 neg_word_list.add(word)
             word_total.append(word)
-    return pos_word_list,neg_word_list,word_total
+    return pos_word_list, neg_word_list, word_total
 
 
-#Plot positive and negative bar charts
+# Plot positive and negative bar charts
 def plot_words(pos_word_list, word_total, string):
     import matplotlib.pyplot as plt
     list_count = []
@@ -593,15 +616,16 @@ def plot_words(pos_word_list, word_total, string):
         toplist.append(top['word'])
         clist.append(top['word_count'])
         print(clist)
-    fig_json=create_graphs(toplist,clist,string)
+    fig_json = create_graphs(toplist, clist, string)
     return fig_json
 
-#Articlees across category
+
+# Articlees across category
 def count_category(df):
-    s=df['Topic'].value_counts(sort=True)
+    s = df['Topic'].value_counts(sort=True)
     new = pd.DataFrame({'Category': s.index, 'Count': s.values})
-    x=new['Category'].to_list()
-    y=new['Count'].to_list()
+    x = new['Category'].to_list()
+    y = new['Count'].to_list()
     trace1 = go.Bar(x=x, y=y, marker_color='red')
     layout = go.Layout(title="No. of articles per category", xaxis=dict(title="Categories", ),
                        yaxis=dict(title="Count", ), autosize=False, width=430, height=400,
@@ -613,7 +637,8 @@ def count_category(df):
     fig_json = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
     return fig_json
 
-#Articles across publication
+
+# Articles across publication
 def count_pub(df):
     s = df['source'].value_counts(sort=True)
     new = pd.DataFrame({'Publication': s.index, 'Count': s.values})
@@ -630,10 +655,11 @@ def count_pub(df):
     fig_json = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
     return fig_json
 
-#Sentiment count pie chart
-def count_sent_pie(x1,y1):
-    x=[]
-    y=[]
+
+# Sentiment count pie chart
+def count_sent_pie(x1, y1):
+    x = []
+    y = []
     for l in x1:
         x.append(l)
     for l1 in y1:
@@ -651,7 +677,8 @@ def count_sent_pie(x1,y1):
     fig_json = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
     return fig_json
 
-#Articles across banks
+
+# Articles across banks
 def count_bank(df):
     s = df['bank'].value_counts(sort=True)
     new = pd.DataFrame({'Banks': s.index, 'Count': s.values})
@@ -660,13 +687,15 @@ def count_bank(df):
     trace1 = go.Bar(x=x, y=y, marker_color='black')
     layout = go.Layout(title="No. of articles across bank", xaxis=dict(title="Banks", ),
                        yaxis=dict(title="Count", ), autosize=False, width=430, height=400,
-                       paper_bgcolor='rgba(0,0,0,0)',margin=dict(b=180,pad=8),
+                       paper_bgcolor='rgba(0,0,0,0)', margin=dict(b=180, pad=8),
                        plot_bgcolor='rgba(0,0,0,0)')
     data = [trace1]
     fig = go.Figure(data=data, layout=layout)
     fig.update_xaxes(tickangle=90)
     fig_json = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
     return fig_json
+
+
 def count_country(df):
     s = df['country'].value_counts(sort=True)
     new = pd.DataFrame({'Country': s.index, 'Count': s.values})
@@ -682,20 +711,43 @@ def count_country(df):
     fig.update_xaxes(tickangle=90)
     fig_json = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
     return fig_json
-def create_text(title,results):
+
+
+def create_text(title, results):
     if title:
-        with open('static/text/'+title+'.txt', 'w',encoding="utf-8") as f:
+        with open('static/text/' + title + '.txt', 'w', encoding="utf-8") as f:
             f.write("%s\n" % str(results))
+
 
 def create_summary(title, results):
     if title:
         with open('static/summaries/' + title + '.txt', 'w', encoding="utf-8") as f:
             f.write("%s\n" % str(results))
 
+def stopwords_for_wordcloud(corpus):
+    list_key = []
+    for x in corpus:
+        list_key.append(x)
+    comment_words = ''
+    for token in list_key:
+        if str(token) != "None":
+            comment_words += token
+
+    stopword_list = nltk.corpus.stopwords.words('english')
+    # add multiple list of stop
+    list = ["march", "week", "number", 'dhbn', "UAE", "amp", "central", "islamic", "standard", "chartered", "mr",
+            "please", 'charter',
+            "dh", "stop", "client", "bank", "abu", "month", "company", "country", "business", "commercial", "singapore",
+            "oil", "asia",
+            "price", "dhabi", 'use', "cent", "uae", "dubai", "banks", "per", "al", "time", "year", "uaes", "new", 'bn',
+            "many", "part", "day"]
+    stopword_list += (list)
+    return stopword_list, comment_words
+
 
 def create_wordcloud(stopwords):
     import matplotlib.pyplot as plt
-    def grey_color_func(word, font_size, position, orientation, random_state=None,**kwargs):
+    def grey_color_func(word, font_size, position, orientation, random_state=None, **kwargs):
         return "hsl(0, 0%%, %d%%)" % random.randint(60, 100)
 
     wordcloud = WordCloud(width=1200, height=1200,
@@ -705,39 +757,41 @@ def create_wordcloud(stopwords):
 
     # change the color setting
     wordcloud.recolor(color_func=grey_color_func)
-    f7 = plt.figure(6,  facecolor=None)
+    f7 = plt.figure(6, facecolor=None)
     plt.imshow(wordcloud)
     plt.axis("off")
     random_number = random.randint(0, 99999)
     name = 'wordcloud' + str(random_number) + '.png'
-    plt.savefig("static/images/"+name)
+    plt.savefig("static/images/" + name)
     images.append(name)
 
 
-def bigram_or_trigram(corpus,stopwords,string):
-    def get_top_n_bigram(corpus,string, n=None):
+def bigram_or_trigram(corpus, stopwords, string):
+    def get_top_n_bigram(corpus, string, n=None):
         vec = CountVectorizer(ngram_range=(2, 2), stop_words=stopwords[0]).fit(corpus)
         bag_of_words = vec.transform(corpus)
         sum_words = bag_of_words.sum(axis=0)
         words_freq = [(word, sum_words[0, idx]) for word, idx in vec.vocabulary_.items()]
-        words_freq =sorted(words_freq, key = lambda x: x[1], reverse=True)
+        words_freq = sorted(words_freq, key=lambda x: x[1], reverse=True)
         return words_freq[:n]
-    common_words = get_top_n_bigram(corpus, string,20)
-    list_words=[]
-    list_freq=[]
+
+    common_words = get_top_n_bigram(corpus, string, 20)
+    list_words = []
+    list_freq = []
     for word, freq in common_words:
         list_words.append(word)
         list_freq.append(freq)
-    fig_json=create_graphs(list_words,list_freq,string)
+    fig_json = create_graphs(list_words, list_freq, string)
     return fig_json
 
-#grouped sentiment chart for the home tab
-def create_sentiment_grouped(sent_topic,news_df):
+
+# grouped sentiment chart for the home tab
+def create_sentiment_grouped(sent_topic, news_df):
     df = {}
     i = 0
     colors = ["red", "grey", "black"]
     for sent in sent_topic:
-        topic_count=news_df[news_df['Sentiment']==sent][['Topic']].groupby('Topic').size()
+        topic_count = news_df[news_df['Sentiment'] == sent][['Topic']].groupby('Topic').size()
         new = pd.DataFrame({'Topic': topic_count.index, 'Count': topic_count.values})
         x = new['Topic'].to_list()
         y = new['Count'].to_list()
@@ -755,8 +809,9 @@ def create_sentiment_grouped(sent_topic,news_df):
     fig_json = json.dumps(fig, cls=plotly.utils.PlotlyJSONEncoder)
     return fig_json
 
-#resultant df for the filtered conditions
-def find_resultant_df(column,list,news_df):
+
+# resultant df for the filtered conditions
+def find_resultant_df(column, list, news_df):
     final = []
     column1 = []
     f = 0
@@ -775,8 +830,9 @@ def find_resultant_df(column,list,news_df):
             df1 = df1[df1[column1[x]] == final[x]]
     return df1
 
-#create resultant df for search article directory
-def resultant_df(query,query3):
+
+# create resultant df for search article directory
+def resultant_df(query, query3):
     df1 = pd.DataFrame(query, columns=['Date', 'Country', 'Publication', 'Bank', 'Category', 'Sentiment', 'Title',
                                        'Clean title'])
     df1 = (df1.drop(['Clean title'], axis=1))
@@ -787,25 +843,30 @@ def resultant_df(query,query3):
     print(df)
     return df
 
-#flask application started and displays a landing page
+
+# flask application started and displays a landing page
 @app.route('/')
 def first():
     return render_template("first_news.html")
 
-#scraping refresh and home page
-@app.route('/home',methods=['get','post'])
+
+# scraping refresh and home page
+@app.route('/home', methods=['get', 'post'])
 def home():
-    #empty the images folder every time it is reloaded
+    # empty the images folder every time it is reloaded
     folder = 'C:/Users/Mansi Dhingra/Desktop/Projects/api/news/static/images'
     for filename in os.listdir(folder):
         file_path = os.path.join(folder, filename)
         os.remove(file_path)
-    #if you want to refresh the whole dashboard with newer articles, click the refresh button
+    # if you want to refresh the whole dashboard with newer articles, click the refresh button
     if request.form.get('refresh'):
         headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'}
         list_bank = ['Mashreq', 'Rakbank', 'HSBC', 'First+Abu+Dhabi+Bank', 'Abu+Dhabi+Commercial+Bank', 'Emirates+NBD',
-                      'Abu+Dhabi+Islamic+Bank', 'Standard+Chartered+Bank', 'Citibank', 'Citi+bank']
+                     'Abu+Dhabi+Islamic+Bank', 'Standard+Chartered+Bank', 'Citibank', 'Citi+bank']
+
+        khaleej_source_url(list_bank, headers)
+        print("KHALEEJ TIMES")
         driver = webdriver.Chrome(executable_path='C:\\Users\\Mansi Dhingra\\Downloads\\chromedriver.exe')
         HOME_PAGE_URL = "https://www.arabianbusiness.com/industries/banking-finance"
         driver.implicitly_wait(30)
@@ -815,21 +876,21 @@ def home():
         print("ARABIAN")
         national_source_url(list_bank, headers)
         print("THE NATIONAL")
-        khaleej_source_url(list_bank, headers)
-        print("KHALEEJ TIMES")
         turkey(headers)
         print("TURKEY")
         egypt(headers)
         print("EGYPT")
-        if len(name_list)>0:
-            news_df = pd.DataFrame(name_list)
+        print("*******************************")
+
+        if len(news_list) > 0:
+            news_df = pd.DataFrame(news_list)
             news_df['full_text'] = news_df["Raw Article"]
             news_df['clean_text'] = normalize_corpus(news_df['full_text'])
             news_df['clean_title'] = normalize_corpus(news_df['Headline'])
             news_df['Topic'] = assign_topics(news_df['clean_text'], news_df['Headline'])
-            news_df['Sentiment'] = sentiment_list(news_df['clean_title'])
+            news_df['Sentiment'] = sentiment_analysis_on_headline(news_df['clean_title'])
             news_df.to_csv('menat_news_articles.csv', mode='a', header=False, index=False)
-        #once your csv file is updated redriect to the same page with fresh data
+        # once your csv file is updated redriect to the same page with fresh data
         return redirect(url_for("home"))
 
     news_df = pd.read_csv('menat_news_articles.csv')
@@ -837,43 +898,46 @@ def home():
     rows = len(news_df.axes[0])
     # if you want to search something from the home page itself, just write in the search box
     search = request.form.get("search")
-    #List of Category from the dataframe
-    topic_list=news_df.Topic.unique()
+    # List of Category from the dataframe
+    topic_list = news_df.Topic.unique()
     country_list = news_df.country.unique()
     source_list = news_df.source.unique()
-    bank_list=news_df.bank.unique()
-    max_date=news_df['date'].max()
-    sent_topic_list=news_df.Sentiment.unique()
-    sent_list=news_df.Sentiment
-    #sentiment count per category
-    fig_json=create_sentiment_grouped(sent_topic_list,news_df)
-    #sentiment count overall pie chart
-    fig_sent=count_sent_pie(Counter(sent_list).keys(), Counter(sent_list).values())
+    bank_list = news_df.bank.unique()
+    max_date = news_df['date'].max()
+    sent_topic_list = news_df.Sentiment.unique()
+    sent_list = news_df.Sentiment
+    # sentiment count per category
+    fig_json = create_sentiment_grouped(sent_topic_list, news_df)
+    # sentiment count overall pie chart
+    fig_sent = count_sent_pie(Counter(sent_list).keys(), Counter(sent_list).values())
     print(fig_sent)
-    #list of positive negative and total words of the cleaned article
+    # list of positive negative and total words of the cleaned article
     list_words = fetch_sentiment_using_vader(news_df['clean_text'])
-    #wordcloud
+    # wordcloud
     stopwords = stopwords_for_wordcloud(news_df['clean_text'])
     create_wordcloud(stopwords)
-    #graph for positive words
-    fig_pos=plot_words(list_words[0], list_words[2], "positive")
-    #graph for negative words
-    fig_neg=plot_words(list_words[1], list_words[2], "negative")
-    #graph forno. of categories
-    fig_cat=count_category(news_df)
-    #graph for publications
-    fig_pub=count_pub(news_df)
-    #graph for banks
-    fig_bank=count_bank(news_df)
-    fig_cont=count_country(news_df)
+    # graph for positive words
+    fig_pos = plot_words(list_words[0], list_words[2], "positive")
+    # graph for negative words
+    fig_neg = plot_words(list_words[1], list_words[2], "negative")
+    # graph forno. of categories
+    fig_cat = count_category(news_df)
+    # graph for publications
+    fig_pub = count_pub(news_df)
+    # graph for banks
+    fig_bank = count_bank(news_df)
+    fig_cont = count_country(news_df)
     images_list = os.listdir(os.path.join(app.static_folder, "images"))
-    return render_template('news_home.html',rows=rows,fig_pub=fig_pub,topic_list=topic_list,img=images_list,plt_pos=fig_pos,plt_neg=fig_neg,
-                           bank_list=bank_list,fig_json=fig_json,source_list=source_list,max_date=max_date,fig_cat=fig_cat,fig_cont=fig_cont,
-                           fig_sent=fig_sent,search=search,fig_bank=fig_bank,sent_topic=sent_topic_list,country_list=country_list)
+    return render_template('news_home.html', rows=rows, fig_pub=fig_pub, topic_list=topic_list, img=images_list,
+                           plt_pos=fig_pos, plt_neg=fig_neg,
+                           bank_list=bank_list, fig_json=fig_json, source_list=source_list, max_date=max_date,
+                           fig_cat=fig_cat, fig_cont=fig_cont,
+                           fig_sent=fig_sent, search=search, fig_bank=fig_bank, sent_topic=sent_topic_list,
+                           country_list=country_list)
 
-@app.route('/category',methods=["get","post"])
+
+@app.route('/category', methods=["get", "post"])
 def filter_func():
-
     folder = 'C:/Users/Mansi Dhingra/Desktop/Projects/api/news/static/images'
     for filename in os.listdir(folder):
         file_path = os.path.join(folder, filename)
@@ -888,56 +952,58 @@ def filter_func():
         os.remove(file_path)
     search = request.form.get("search")
     news_df = pd.read_csv('menat_news_articles.csv')
-
-    #creating list for filters for this particular html page
+    # creating list for filters for this particular html page
     topic_list = news_df.Topic.unique()
     country_list = news_df.country.unique()
     source_list = news_df.source.unique()
     bank_list = news_df.bank.unique()
     max_date = news_df['date'].max()
-    sent_topic_list=news_df.Sentiment.unique()
+    sent_topic_list = news_df.Sentiment.unique()
 
-    #fetch results from the filters
-    country_result=request.form["country_list"]
-    result=request.form["topic_list"]
-    source_result=request.form["source_list"]
-    bank_result=request.form["bank_list"]
-    sent_result=request.form["sent_list"]
-    start_date=request.form["start_date"]
-    end_date=request.form["end_date"]
+    # fetch results from the filters
+    country_result = request.form["country_list"]
+    result = request.form["topic_list"]
+    source_result = request.form["source_list"]
+    bank_result = request.form["bank_list"]
+    sent_result = request.form["sent_list"]
+    start_date = request.form["start_date"]
+    end_date = request.form["end_date"]
 
-    #create resultant df based on the values selected in the filter
-    column=['country','Topic','source','bank','Sentiment']
-    list=[country_result,result,source_result,bank_result,sent_result]
-    df1=find_resultant_df(column,list,news_df)
-    #check if the resultant df exists within the dates selected
+    # create resultant df based on the values selected in the filter
+    column = ['country', 'Topic', 'source', 'bank', 'Sentiment']
+    list = [country_result, result, source_result, bank_result, sent_result]
+    df1 = find_resultant_df(column, list, news_df)
+    # check if the resultant df exists within the dates selected
     df1 = df1[(df1['date'] >= start_date)]
     df1 = df1[(df1['date'] <= end_date)]
     df1 = df1.sort_values(by=['date'])
 
     clean_text_list = df1.clean_text
-    sent_list=df1.Sentiment
+    sent_list = df1.Sentiment
 
     for row in df1.index:
         if pd.isna(df1['clean_title'][row]):
             create_text("file", df1["Raw Article"][row])
             create_summary("file", df1['Summary'][row])
-        create_text(df1['clean_title'][row],df1["Raw Article"][row])
-        create_summary(df1['clean_title'][row],df1['Summary'][row])
+        create_text(df1['clean_title'][row], df1["Raw Article"][row])
+        create_summary(df1['clean_title'][row], df1['Summary'][row])
 
-    #print the statement when the filters lead to no results
-    if len(clean_text_list)==0:
-        string="No results found."
-        return render_template("index_news.html",string=string,topic_list=topic_list,result=result,source_result=source_result,sent_topic=sent_topic_list,
-                           source_list=source_list,bank_list=bank_list,bank_result=bank_result,start_date=start_date,end_date=end_date
-                               ,country_list=country_list)
+    # print the statement when the filters lead to no results
+    if len(clean_text_list) == 0:
+        string = "No results found."
+        return render_template("index_news.html", string=string, topic_list=topic_list, result=result,
+                               source_result=source_result, sent_topic=sent_topic_list,
+                               source_list=source_list, bank_list=bank_list, bank_result=bank_result,
+                               start_date=start_date, end_date=end_date
+                               , country_list=country_list)
     # create table to export,fetch all the data that was asked with the filters store it on a excel file and export whenever user wants
-    list_columns=['date','country', 'source', 'bank', 'Topic' ,'Sentiment' ,'Headline','clean_text','clean_title',"Raw Article",'Summary']
+    list_columns = ['date', 'country', 'source', 'bank', 'Topic', 'Sentiment', 'Headline', 'clean_text', 'clean_title',
+                    "Raw Article", 'Summary']
     df2 = df1[list_columns]
     df2 = (df2.drop(['clean_text', 'clean_title'], axis=1))
-    list_columns1=["Date","Country","Publication","Bank","Category","Sentiment","Title","Article","Summary"]
-    df2.columns=list_columns1
-    #create table to export,fetch all the data that was asked with the filters store it on a excel file and export whenever user wants
+    list_columns1 = ["Date", "Country", "Publication", "Bank", "Category", "Sentiment", "Title", "Article", "Summary"]
+    df2.columns = list_columns1
+    # create table to export,fetch all the data that was asked with the filters store it on a excel file and export whenever user wants
     df2.to_excel('static/table/article_directory.xlsx')
     table_list = os.listdir(os.path.join(app.static_folder, "table"))
 
@@ -945,23 +1011,28 @@ def filter_func():
     # create a pie chart only when sentiments are filtered as all and in sent_list, we have a list of all the sentiments for every row
     if sent_result == "All":
         fig_pie = count_sent_pie(Counter(sent_list).keys(), Counter(sent_list).values())
-    #create wordcloud and remove unwanted stopwords
+    # create wordcloud and remove unwanted stopwords
     stopwords = stopwords_for_wordcloud(clean_text_list)
     create_wordcloud(stopwords)
-    #creates bigram
+    # creates bigram
     fig_tri = bigram_or_trigram(clean_text_list, stopwords, "bigram")
-    #wordcloud is stored in this folder
+    # wordcloud is stored in this folder
     images_list = os.listdir(os.path.join(app.static_folder, "images"))
-    #download articles and summaries content are in text and summaries folder
+    # download articles and summaries content are in text and summaries folder
     text_list1 = os.listdir(os.path.join(app.static_folder, "text"))
-    summary_list1=os.listdir(os.path.join(app.static_folder, "summaries"))
+    summary_list1 = os.listdir(os.path.join(app.static_folder, "summaries"))
 
-    return render_template("index_news.html",topic_list=topic_list,result=result,source_result=source_result,summary=summary_list1,country_result=country_result,
-                           source_list=source_list,sent_topic=sent_topic_list,bank_list=bank_list,bank_result=bank_result,start_date=start_date,end_date=end_date,
-                           max_date=max_date,query=df1,string="None",search=search,fig_pie=fig_pie,country_list=country_list,sent_result=sent_result,
-                           fig_tri=fig_tri,img1=images_list,text1=text_list1,table_excel=table_list,list_columns=list_columns)
+    return render_template("index_news.html", topic_list=topic_list, result=result, source_result=source_result,
+                           summary=summary_list1, country_result=country_result,
+                           source_list=source_list, sent_topic=sent_topic_list, bank_list=bank_list,
+                           bank_result=bank_result, start_date=start_date, end_date=end_date,
+                           max_date=max_date, query=df1, string="None", search=search, fig_pie=fig_pie,
+                           country_list=country_list, sent_result=sent_result,
+                           fig_tri=fig_tri, img1=images_list, text1=text_list1, table_excel=table_list,
+                           list_columns=list_columns)
 
-@app.route('/search',methods=["get","post"])
+
+@app.route('/search', methods=["get", "post"])
 def search_func():
     result = request.args.get('search')
 
@@ -981,53 +1052,56 @@ def search_func():
     news_df = pd.read_csv('menat_news_articles.csv')
     news_df.to_sql('users', con=engine)
 
-    #because the filters also exist in the search page
+    # because the filters also exist in the search page
     topic_list = news_df.Topic.unique()
     country_list = news_df.country.unique()
     source_list = news_df.source.unique()
     bank_list = news_df.bank.unique()
     max_date = news_df['date'].max()
-    sent_topic_list=news_df.Sentiment.unique()
+    sent_topic_list = news_df.Sentiment.unique()
 
     query = engine.execute('''Select date,country,source,bank,Topic,Sentiment,Headline,clean_title from users where "Raw Article"
-     like ('%' || ? || '%') order by date ''',(str(result),) ).fetchall()
+     like ('%' || ? || '%') order by date ''', (str(result),)).fetchall()
     query2 = engine.execute('''Select "clean_text",Sentiment from users where  "Raw Article"
-     like ('%' || ? || '%')''',(str(result),) ).fetchall()
+     like ('%' || ? || '%')''', (str(result),)).fetchall()
     query3 = engine.execute('''Select clean_title,"Raw Article", Summary from users where  "Raw Article"
-     like ('%' || ? || '%')''',(str(result),) ).fetchall()
+     like ('%' || ? || '%')''', (str(result),)).fetchall()
     clean_text_list = []
-    sent_list=[]
+    sent_list = []
     for x in query2:
         clean_text_list.append(x[0])
-        if len(x)>1:
+        if len(x) > 1:
             sent_list.append(x[1])
     if len(clean_text_list) == 0:
         string = "No results found."
-        return render_template("search_news.html", string=string, topic_list=topic_list, result=result,sent_topic=sent_topic_list,
-                            source_list=source_list, bank_list=bank_list, end_date=max_date,max_date=max_date,country_list=country_list)
-    #wordcloud
+        return render_template("search_news.html", string=string, topic_list=topic_list, result=result,
+                               sent_topic=sent_topic_list,
+                               source_list=source_list, bank_list=bank_list, end_date=max_date, max_date=max_date,
+                               country_list=country_list)
+    # wordcloud
     stopwords = stopwords_for_wordcloud(clean_text_list)
     create_wordcloud(stopwords)
     images_list = os.listdir(os.path.join(app.static_folder, "images"))
 
-    #bigrams
+    # bigrams
     fig_tri = bigram_or_trigram(clean_text_list, stopwords, "bigram")
     for row in query3:
         create_text(row[0], row[1])
         create_summary(row[0], row[2])
-    #query had some columns and query3 had some columns so needed to concatenate to make a full df
-    df=resultant_df(query,query3)
-    #df converted to excel for exporting
+    # query had some columns and query3 had some columns so needed to concatenate to make a full df
+    df = resultant_df(query, query3)
+    # df converted to excel for exporting
     df.to_excel('static/table/article_directory.xlsx')
     table_list = os.listdir(os.path.join(app.static_folder, "table"))
-    #download articles and summary for the searched data
+    # download articles and summary for the searched data
     text_list1 = os.listdir(os.path.join(app.static_folder, "text"))
     summary_list1 = os.listdir(os.path.join(app.static_folder, "summaries"))
-    #sentiment pie chart for results
-    fig_pie=count_sent_pie(Counter(sent_list).keys(),Counter(sent_list).values())
+    # sentiment pie chart for results
+    fig_pie = count_sent_pie(Counter(sent_list).keys(), Counter(sent_list).values())
     return render_template("search_news.html", topic_list=topic_list, result=result,
-                           summary=summary_list1,fig_pie=fig_pie,sent_topic=sent_topic_list,
-                           source_list=source_list, bank_list=bank_list,table_excel=table_list,country_list=country_list,
+                           summary=summary_list1, fig_pie=fig_pie, sent_topic=sent_topic_list,
+                           source_list=source_list, bank_list=bank_list, table_excel=table_list,
+                           country_list=country_list,
                            max_date=max_date, query=query, string="None", search=search,
                            fig_tri=fig_tri, img1=images_list, text1=text_list1)
 
