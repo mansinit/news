@@ -368,7 +368,6 @@ def egypt(headers):
         x = tr.find_all("a")[1]
         link=(x.get('href'))
         title=x.h3.text.strip()
-        print("egypttttttttttttttttttttt")
         print(title)
         date_p = tr.span.text.strip()
         date_f = datetime.datetime.strptime(date_p, '%a, %b. %d, %Y').strftime('%Y/%m/%d')
@@ -417,10 +416,8 @@ def khaleej_source_url(list_bank,headers):
     import csv
     for bank in list_bank:
         f=0
-        print("KHALEEJ SOURCE URL")
         print(bank)
         for i in range(1,10):
-            print(i)
             url="https://www.khaleejtimes.com/search?text={}&pagenumber={}".format(bank,i)
             bank1=bank
             if '+' in bank:
@@ -467,9 +464,7 @@ HOME_PAGE_URL = "https://www.arabianbusiness.com/industries/banking-finance"
 driver.implicitly_wait(30)
 driver.get(HOME_PAGE_URL)
 driver.implicitly_wait(30)
-print("**************************Arabian*************************************")
 arabian(driver)
-print("***********************National***************************")
 national_source_url(list_bank,headers)
 khaleej_source_url(list_bank,headers)
 turkey(headers)
